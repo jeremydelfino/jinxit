@@ -9,63 +9,43 @@ export default function GameCard({ game, onBet }) {
   if (pro) {
     return (
       <div className="game-card">
-
-        {/* ─── PRO OVERLAY ─── */}
         <div className="pro-overlay">
-          <div
-            className="pro-bg"
-            style={{ background: `linear-gradient(160deg, ${accentColor}15, #242424)` }}
-          />
+          <div className="pro-bg" style={{ background: `linear-gradient(160deg, ${accentColor}15, #242424)` }}>
+            {pro.team_logo_url && (
+              <img className="pro-team-logo" src={pro.team_logo_url} alt={pro.team} referrerPolicy="no-referrer" />
+            )}
+          </div>
 
           {pro.photo_url ? (
-            <img className="pro-photo" src={pro.photo_url} alt={pro.name} />
-          ) : (
-            <div
-              className="pro-initials"
-              style={{
-                background: accentColor + '15',
-                color: accentColor,
-                borderColor: accentColor + '40',
-              }}
-            >
-              {pro.name.slice(0, 2).toUpperCase()}
-            </div>
-          )}
+            <img
+              className="pro-photo"
+              src={pro.photo_url}
+              alt={pro.name}
+              referrerPolicy="no-referrer"
+              onError={e => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex' }}
+            />
+          ) : null}
+          <div className="pro-initials" style={{ display: pro.photo_url ? 'none' : 'flex', background: accentColor + '15', color: accentColor, borderColor: accentColor + '40' }}>
+            {pro.name.slice(0, 2).toUpperCase()}
+          </div>
 
           {pro.role && (
-            <div
-              className="pro-role-badge"
-              style={{
-                background: accentColor + '12',
-                color: accentColor,
-                borderColor: accentColor + '20',
-              }}
-            >
+            <div className="pro-role-badge" style={{ background: accentColor + '12', color: accentColor, borderColor: accentColor + '20' }}>
               {pro.role}
             </div>
           )}
 
           <div className="pro-info">
             <div className="pro-name">{pro.name}</div>
-            {pro.team && (
-              <div className="pro-team" style={{ color: accentColor }}>{pro.team}</div>
-            )}
+            {pro.team && <div className="pro-team" style={{ color: accentColor }}>{pro.team}</div>}
           </div>
         </div>
 
-        {/* ─── GAME INFO (revealed on hover) ─── */}
         <div className="game-info">
           <div className="game-top">
             <div className="game-players">
               {players.map((p, i) => (
-                <div
-                  key={i}
-                  className="player-icon"
-                  style={{
-                    background: ICON_COLORS[i % ICON_COLORS.length] + '25',
-                    color: ICON_COLORS[i % ICON_COLORS.length],
-                  }}
-                >
+                <div key={i} className="player-icon" style={{ background: ICON_COLORS[i % ICON_COLORS.length] + '25', color: ICON_COLORS[i % ICON_COLORS.length] }}>
                   {p.slice(0, 2).toUpperCase()}
                 </div>
               ))}
@@ -87,14 +67,7 @@ export default function GameCard({ game, onBet }) {
 
           <div className="game-footer">
             <span className="game-queue">{queue} · {region}</span>
-            <button
-              className="bet-btn"
-              style={{
-                background: `linear-gradient(135deg, ${accentColor}, ${accentColor}aa)`,
-                boxShadow: `0 4px 16px ${accentColor}50`,
-              }}
-              onClick={e => { e.stopPropagation(); onBet?.(game) }}
-            >
+            <button className="bet-btn" style={{ background: `linear-gradient(135deg, ${accentColor}, ${accentColor}aa)`, boxShadow: `0 4px 16px ${accentColor}50` }} onClick={e => { e.stopPropagation(); onBet?.(game) }}>
               Parier
             </button>
           </div>
@@ -103,20 +76,12 @@ export default function GameCard({ game, onBet }) {
     )
   }
 
-  // ─── CARD SANS PRO ───
   return (
     <div className="game-card-simple">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div className="game-players" style={{ display: 'flex' }}>
           {players.map((p, i) => (
-            <div
-              key={i}
-              className="player-icon"
-              style={{
-                background: ICON_COLORS[i % ICON_COLORS.length] + '25',
-                color: ICON_COLORS[i % ICON_COLORS.length],
-              }}
-            >
+            <div key={i} className="player-icon" style={{ background: ICON_COLORS[i % ICON_COLORS.length] + '25', color: ICON_COLORS[i % ICON_COLORS.length] }}>
               {p.slice(0, 2).toUpperCase()}
             </div>
           ))}
@@ -138,11 +103,7 @@ export default function GameCard({ game, onBet }) {
 
       <div className="game-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span className="game-queue">{queue} · {region}</span>
-        <button
-          className="bet-btn"
-          style={{ background: 'linear-gradient(135deg, #00e5ff, #00b8cc)', boxShadow: '0 4px 16px #00e5ff50' }}
-          onClick={e => { e.stopPropagation(); onBet?.(game) }}
-        >
+        <button className="bet-btn" style={{ background: 'linear-gradient(135deg, #00e5ff, #00b8cc)', boxShadow: '0 4px 16px #00e5ff50' }} onClick={e => { e.stopPropagation(); onBet?.(game) }}>
           Parier
         </button>
       </div>

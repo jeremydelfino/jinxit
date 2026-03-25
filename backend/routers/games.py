@@ -24,10 +24,16 @@ async def force_poll():
 def get_live_games(db: Session = Depends(get_db)):
     games = db.query(LiveGame).filter(
         LiveGame.status == "live"
-    ).order_by(LiveGame.fetched_at.desc()).limit(12).all()
+    ).order_by(LiveGame.fetched_at.desc()).all()
 
     result = []
+    seen_game_ids = set()
+
     for game in games:
+        if game.riot_game_id in seen_game_ids:
+            continue
+        seen_game_ids.add(game.riot_game_id)
+
         all_participants = game.blue_team + game.red_team
         all_puuids = [p.get("puuid") for p in all_participants]
 
@@ -35,8 +41,6 @@ def get_live_games(db: Session = Depends(get_db)):
             ProPlayer.riot_puuid.in_(all_puuids),
             ProPlayer.is_active == True
         ).first()
-
-        print("GAME:", game.riot_game_id, "PRO:", pro.name if pro else "Aucun")
 
         result.append({
             "id": game.id,
@@ -51,10 +55,10 @@ def get_live_games(db: Session = Depends(get_db)):
                 "team": pro.team,
                 "role": pro.role,
                 "photo_url": pro.photo_url,
+                "team_logo_url": pro.team_logo_url,  # ✅ ajout
                 "accent_color": pro.accent_color,
             } if pro else None,
             "fetched_at": game.fetched_at,
         })
-        
-    print("Total live games:", len(result))
-    return result
+
+    return result[:12]

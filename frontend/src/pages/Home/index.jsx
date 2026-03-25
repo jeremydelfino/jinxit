@@ -47,7 +47,7 @@ function formatGameForCard(game) {
     queue: game.queue || 'Ranked Solo',
     region: game.pro?.region || 'EUW',
     players,
-    pro: game.pro || null,
+    pro: game.pro ? { ...game.pro } : null,
   }
 }
 
@@ -71,8 +71,7 @@ export default function Home() {
     }
 
     fetchGames()
-    // Rafraîchit toutes les 3 minutes
-    const interval = setInterval(fetchGames, 3 * 60 * 1000)
+    const interval = setInterval(fetchGames, 30 * 1000)
     return () => clearInterval(interval)
   }, [])
 
@@ -80,6 +79,27 @@ export default function Home() {
     if (!search.trim()) return
     const [name, tag] = search.split('#')
     navigate(`/player/${region}/${encodeURIComponent(name.trim())}/${(tag || region).trim()}`)
+  }
+
+  const [suggestions, setSuggestions] = useState([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+
+  useEffect(() => {
+    if (search.length < 2) { setSuggestions([]); return }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.get(`/players/search/autocomplete?q=${encodeURIComponent(search)}`)
+        setSuggestions(res.data)
+        setShowSuggestions(true)
+      } catch {}
+    }, 200)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  const handleSuggestionClick = (s) => {
+    navigate(`/player/${s.region}/${encodeURIComponent(s.summoner_name)}/${s.tag_line}`)
+    setShowSuggestions(false)
+    setSearch('')
   }
 
   const games = liveGames.map(formatGameForCard)
@@ -101,14 +121,15 @@ export default function Home() {
           Recherche un joueur, regarde sa partie live<br />
           et mise tes coins virtuels
         </p>
-        <div className="search-wrap">
+        <div className="search-wrap" onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}>
           <div className="search-glow" />
           <input
             className="search-input"
             placeholder="Nom d'invocateur#TAG"
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => { setSearch(e.target.value); setShowSuggestions(true) }}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
+            onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
           />
           <select
             className="search-region"
@@ -127,6 +148,34 @@ export default function Home() {
             ))}
           </select>
           <button className="search-btn" onClick={handleSearch}>Rechercher</button>
+
+          {/* ─── SUGGESTIONS ─── */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="suggestions-dropdown">
+              {suggestions.map((s, i) => (
+                <div
+                  key={i}
+                  className="suggestion-item"
+                  onMouseDown={() => handleSuggestionClick(s)}
+                >
+                  <div className="suggestion-icon">
+                    {s.profile_icon_url ? (
+                      <img
+                      src={s.profile_icon_url}
+                      alt=""
+                      referrerPolicy="no-referrer"
+                      onError={e => { e.target.style.display = 'none' }}
+                    />
+                    ) : s.summoner_name.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="suggestion-info">
+                    <div className="suggestion-name">{s.summoner_name}<span className="suggestion-tag">#{s.tag_line}</span></div>
+                    <div className="suggestion-meta">{s.tier ? `${s.tier} ${s.rank}` : 'Non classé'} · {s.region}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

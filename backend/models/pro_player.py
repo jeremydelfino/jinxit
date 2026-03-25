@@ -16,3 +16,4 @@ class ProPlayer(Base):
     accent_color = Column(String(7), default='#00e5ff')
     is_active    = Column(Boolean, default=True)
     created_at   = Column(TIMESTAMP, server_default=func.now())
+    team_logo_url = Column(String(500), nullable=True)

@@ -65,6 +65,11 @@ async def get_rank_by_puuid(puuid: str, region: str) -> list:
 
 
 async def get_live_game_by_puuid(puuid: str, region: str) -> dict | None:
+    try:
+        res.raise_for_status()
+        return res.json()
+    except Exception:
+        return None  # ✅
     platform = REGIONS.get(region.upper(), "euw1")
     url = f"https://{platform}.api.riotgames.com/lol/spectator/v5/active-games/by-summoner/{puuid}"
     async with httpx.AsyncClient() as client:

@@ -101,49 +101,63 @@ export default function Player() {
   const accentColor = pro_player?.accent_color || '#00e5ff'
   const champStats = groupByChampion(match_history || [])
 
-  const bannerStyle = pro_player
-    ? { background: `linear-gradient(135deg, ${accentColor}15, #1a1919 60%)` }
-    : { background: 'linear-gradient(135deg, #00e5ff08, #1a1919 60%)' }
-
   return (
     <div className="player-page">
+
       {/* ─── BANNER ─── */}
       <div className="player-banner">
-        <div className="player-banner-bg" style={bannerStyle} />
+        <div className="player-banner-bg" style={pro_player
+          ? { background: `linear-gradient(135deg, ${accentColor}20, #1a1919 60%)` }
+          : { background: 'linear-gradient(135deg, #00e5ff08, #1a1919 60%)' }
+        } />
+        {pro_player?.team_logo_url && (
+          <img
+            className="player-banner-team-logo"
+            src={pro_player.team_logo_url}
+            alt={pro_player.team}
+            referrerPolicy="no-referrer"
+          />
+        )}
         <div className="player-banner-overlay" />
       </div>
 
-      {/* ─── PROFILE HEADER ─── */}
-      <div className="profile-header">
-        <div className="profile-icon-wrap">
-          <div className="profile-icon">
-            {player.profile_icon_url
-              ? <img src={player.profile_icon_url} alt="icon" />
-              : player.summoner_name?.slice(0, 2).toUpperCase()
-            }
-          </div>
-          <div className="profile-level">Niv. {player.level || '—'}</div>
-        </div>
+      {/* ─── PRO CARD FIFA flottante ─── */}
+      <div className="pro-float-card">
 
-        <div className="profile-info">
-          <div className="profile-name">
+      <div className="pro-photo-card" style={!pro_player?.photo_url ? { display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#242424' } : {}}>
+        {pro_player?.photo_url ? (
+          <img src={pro_player.photo_url} alt={pro_player.name} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
+        ) : player.profile_icon_url ? (
+          <img
+            src={player.profile_icon_url}
+            alt={player.summoner_name}
+            style={{ width: '90px', height: '90px', borderRadius: '12px', objectFit: 'cover' }}
+            referrerPolicy="no-referrer"
+            onError={e => { e.target.style.display = 'none' }}
+          />
+        ) : (
+          <div className="pro-photo-initials">{player.summoner_name?.slice(0, 2).toUpperCase()}</div>
+        )}
+        <div className="pro-photo-accent" style={{ background: `linear-gradient(90deg, ${accentColor}, ${accentColor}88)` }} />
+      </div>
+
+        {/* Infos joueur */}
+        <div className="pro-card-info">
+          <div className="pro-card-name">
             {player.summoner_name}
-            <span className="profile-tag">#{player.tag_line}</span>
+            <span className="pro-card-tag">#{player.tag_line}</span>
             {pro_player && (
               <span
-                className="profile-pro-badge"
+                className="pro-card-badge"
                 style={{ background: accentColor + '15', color: accentColor, border: `1px solid ${accentColor}30` }}
               >
                 {pro_player.name} · {pro_player.team}
               </span>
             )}
           </div>
-          <div className="profile-meta">
+          <div className="pro-card-badges">
             {player.tier && (
-              <span
-                className="meta-badge"
-                style={{ color: tierColor, background: tierColor + '15', borderColor: tierColor + '30' }}
-              >
+              <span className="meta-badge" style={{ color: tierColor, background: tierColor + '15', borderColor: tierColor + '30' }}>
                 {player.tier} {player.rank} · {player.lp} LP
               </span>
             )}
@@ -225,18 +239,11 @@ export default function Player() {
                 {champStats.map((c, i) => (
                   <div className="champ-card" key={i}>
                     <div className="champ-img">
-                      <img
-                        src={getChampionIcon(c.name)}
-                        alt={c.name}
-                        onError={e => { e.target.style.display = 'none' }}
-                      />
+                      <img src={getChampionIcon(c.name)} alt={c.name} referrerPolicy="no-referrer" onError={e => { e.target.style.display = 'none' }} />
                     </div>
                     <div className="champ-name">{c.name}</div>
                     <div className="champ-kda">{c.kda} KDA</div>
-                    <div
-                      className="champ-wr"
-                      style={{ color: c.winrate >= 60 ? '#22c55e' : c.winrate >= 50 ? '#c89b3c' : '#ef4444' }}
-                    >
+                    <div className="champ-wr" style={{ color: c.winrate >= 60 ? '#22c55e' : c.winrate >= 50 ? '#c89b3c' : '#ef4444' }}>
                       {c.winrate}% · {c.games}G
                     </div>
                   </div>
@@ -254,17 +261,11 @@ export default function Player() {
                   <div className="match-row" key={i}>
                     <div className="match-result-bar" style={{ background: m.win ? '#22c55e' : '#ef4444' }} />
                     <div className="match-champ">
-                      <img
-                        src={getChampionIcon(m.champion)}
-                        alt={m.champion}
-                        onError={e => { e.target.style.display = 'none' }}
-                      />
+                      <img src={getChampionIcon(m.champion)} alt={m.champion} onError={e => { e.target.style.display = 'none' }} />
                     </div>
                     <div className="match-info">
                       <div className="match-name">{m.champion} · {m.role || 'MID'}</div>
-                      <div className="match-meta">
-                        {m.win ? '✓ Victoire' : '✗ Défaite'} · {timeAgo(m.played_at)}
-                      </div>
+                      <div className="match-meta">{m.win ? '✓ Victoire' : '✗ Défaite'} · {timeAgo(m.played_at)}</div>
                     </div>
                     <div className="match-right">
                       <div className="match-kda">{m.kills}/{m.deaths}/{m.assists}</div>
@@ -282,51 +283,24 @@ export default function Player() {
           {jinxit_profile ? (
             <div className="sidebar-card">
               <div className="sidebar-section-label">Profil Jinxit</div>
-              <div
-                className="jinxit-avatar"
-                style={{ background: `linear-gradient(135deg, #00e5ff20, #d946a820)`, border: '2px solid #00e5ff30' }}
-              >
-                {jinxit_profile.avatar_url
-                  ? <img src={jinxit_profile.avatar_url} alt="avatar" />
-                  : jinxit_profile.username?.slice(0, 2).toUpperCase()
-                }
+              <div className="jinxit-avatar" style={{ background: `linear-gradient(135deg, #00e5ff20, #d946a820)`, border: '2px solid #00e5ff30' }}>
+                {jinxit_profile.avatar_url ? <img src={jinxit_profile.avatar_url} alt="avatar" /> : jinxit_profile.username?.slice(0, 2).toUpperCase()}
               </div>
               <div className="jinxit-username">{jinxit_profile.username}</div>
-              {jinxit_profile.equipped_title && (
-                <div className="jinxit-title-badge">✦ {jinxit_profile.equipped_title}</div>
-              )}
-              <div className="jinxit-coins">
-                <span className="coin-dot" />
-                {jinxit_profile.coins?.toLocaleString()} coins
-              </div>
+              {jinxit_profile.equipped_title && <div className="jinxit-title-badge">✦ {jinxit_profile.equipped_title}</div>}
+              <div className="jinxit-coins"><span className="coin-dot" />{jinxit_profile.coins?.toLocaleString()} coins</div>
               <div className="jinxit-stats-grid">
-                <div className="jstat">
-                  <div className="jstat-val" style={{ color: '#22c55e' }}>—%</div>
-                  <div className="jstat-lbl">Win rate</div>
-                </div>
-                <div className="jstat">
-                  <div className="jstat-val" style={{ color: '#00e5ff' }}>—</div>
-                  <div className="jstat-lbl">Paris gagnés</div>
-                </div>
-                <div className="jstat">
-                  <div className="jstat-val" style={{ color: '#d946a8' }}>—</div>
-                  <div className="jstat-lbl">Win streak</div>
-                </div>
-                <div className="jstat">
-                  <div className="jstat-val" style={{ color: '#c89b3c' }}>—</div>
-                  <div className="jstat-lbl">Cartes</div>
-                </div>
+                <div className="jstat"><div className="jstat-val" style={{ color: '#22c55e' }}>—%</div><div className="jstat-lbl">Win rate</div></div>
+                <div className="jstat"><div className="jstat-val" style={{ color: '#00e5ff' }}>—</div><div className="jstat-lbl">Paris gagnés</div></div>
+                <div className="jstat"><div className="jstat-val" style={{ color: '#d946a8' }}>—</div><div className="jstat-lbl">Win streak</div></div>
+                <div className="jstat"><div className="jstat-val" style={{ color: '#c89b3c' }}>—</div><div className="jstat-lbl">Cartes</div></div>
               </div>
             </div>
           ) : (
             <div className="sidebar-card">
               <div className="sidebar-section-label">Profil Jinxit</div>
-              <div className="no-jinxit-text">
-                Ce joueur n'a pas encore lié de compte Jinxit.
-              </div>
-              <button className="no-jinxit-btn" onClick={() => navigate('/register')}>
-                Créer un compte →
-              </button>
+              <div className="no-jinxit-text">Ce joueur n'a pas encore lié de compte Jinxit.</div>
+              <button className="no-jinxit-btn" onClick={() => navigate('/register')}>Créer un compte →</button>
             </div>
           )}
         </div>

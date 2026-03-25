@@ -7,17 +7,45 @@ from models.match import MatchHistory
 from services import riot
 from datetime import datetime, timedelta
 from models.user import User
+import httpx
+from fastapi.responses import Response
 
 router = APIRouter(prefix="/players", tags=["players"])
 
 
+
+@router.get("/proxy/icon")
+async def proxy_icon(url: str):
+    async with httpx.AsyncClient() as client:
+        res = await client.get(url)
+        return Response(content=res.content, media_type="image/png")
+
+@router.get("/search/autocomplete")
+def autocomplete(q: str, db: Session = Depends(get_db)):
+    if not q or len(q) < 2:
+        return []
+    results = db.query(SearchedPlayer).filter(
+        SearchedPlayer.summoner_name.ilike(f"%{q}%")
+    ).order_by(SearchedPlayer.last_updated.desc()).limit(5).all()
+    return [
+        {
+            "summoner_name": p.summoner_name,
+            "tag_line": p.tag_line,
+            "region": p.region,
+            "tier": p.tier,
+            "rank": p.rank,
+            "profile_icon_url": p.profile_icon_url,
+        }
+        for p in results
+    ]
+
 @router.get("/{region}/{game_name}/{tag_line}")
 async def get_player(region: str, game_name: str, tag_line: str, db: Session = Depends(get_db)):
 
-    # 1. Chercher en cache d'abord (évite d'appeler Riot à chaque fois)
+    # 1. Chercher en cache d'abord (par nom+tag+region OU par puuid)
     cached = db.query(SearchedPlayer).filter(
-        SearchedPlayer.summoner_name == game_name,
-        SearchedPlayer.tag_line == tag_line,
+        SearchedPlayer.summoner_name.ilike(game_name),
+        SearchedPlayer.tag_line.ilike(tag_line),
         SearchedPlayer.region == region.upper()
     ).first()
 
@@ -25,26 +53,37 @@ async def get_player(region: str, game_name: str, tag_line: str, db: Session = D
 
     if not cache_valid:
         try:
-            # 2. Appel Riot API
             account = await riot.get_account_by_riot_id(game_name, tag_line, region)
             puuid = account["puuid"]
 
             summoner = await riot.get_summoner_by_puuid(puuid, region)
-
-            # Debug temporaire
-            print("ACCOUNT:", account)
-            print("SUMMONER:", summoner)
             rank_data = await riot.get_rank_by_puuid(puuid, region)
-
             solo_rank = next((r for r in rank_data if r["queueType"] == "RANKED_SOLO_5x5"), None)
 
-            # 3. Sauvegarder / mettre à jour en cache
-            if cached:
+            profile_icon_url = f"https://ddragon.leagueoflegends.com/cdn/14.10.1/img/profileicon/{summoner['profileIconId']}.png"
+
+            # ✅ Chercher aussi par puuid pour éviter le UniqueViolation
+            existing_by_puuid = db.query(SearchedPlayer).filter(
+                SearchedPlayer.riot_puuid == puuid
+            ).first()
+
+            if existing_by_puuid:
+                # Mettre à jour l'entrée existante
+                existing_by_puuid.summoner_name = game_name
+                existing_by_puuid.tag_line = tag_line
+                existing_by_puuid.region = region.upper()
+                existing_by_puuid.tier = solo_rank["tier"] if solo_rank else None
+                existing_by_puuid.rank = solo_rank["rank"] if solo_rank else None
+                existing_by_puuid.lp = solo_rank["leaguePoints"] if solo_rank else 0
+                existing_by_puuid.profile_icon_url = profile_icon_url
+                existing_by_puuid.last_updated = datetime.utcnow()
+                player = existing_by_puuid
+            elif cached:
                 cached.riot_puuid = puuid
                 cached.tier = solo_rank["tier"] if solo_rank else None
                 cached.rank = solo_rank["rank"] if solo_rank else None
                 cached.lp = solo_rank["leaguePoints"] if solo_rank else 0
-                cached.profile_icon_url = f"https://ddragon.leagueoflegends.com/cdn/14.10.1/img/profileicon/{summoner['profileIconId']}.png"
+                cached.profile_icon_url = profile_icon_url
                 cached.last_updated = datetime.utcnow()
                 player = cached
             else:
@@ -56,7 +95,7 @@ async def get_player(region: str, game_name: str, tag_line: str, db: Session = D
                     tier=solo_rank["tier"] if solo_rank else None,
                     rank=solo_rank["rank"] if solo_rank else None,
                     lp=solo_rank["leaguePoints"] if solo_rank else 0,
-                    profile_icon_url=f"https://ddragon.leagueoflegends.com/cdn/14.10.1/img/profileicon/{summoner['profileIconId']}.png"
+                    profile_icon_url=profile_icon_url,
                 )
                 db.add(player)
 
@@ -68,7 +107,6 @@ async def get_player(region: str, game_name: str, tag_line: str, db: Session = D
     else:
         player = cached
 
-    # 4. Vérifier si le joueur est en game
     live_game = await riot.get_live_game_by_puuid(player.riot_puuid, region)
 
     # 5. Récupérer l'historique des matchs
@@ -133,5 +171,6 @@ async def get_player(region: str, game_name: str, tag_line: str, db: Session = D
         "role": pro_player.role,
         "accent_color": pro_player.accent_color,
         "photo_url": pro_player.photo_url,
+        "team_logo_url": pro_player.team_logo_url,  # ✅ ajout
     } if pro_player else None,
 }
