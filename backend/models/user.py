@@ -17,4 +17,7 @@ class User(Base):
     last_daily              = Column(TIMESTAMP, nullable=True)
     riot_puuid              = Column(String(100), unique=True, nullable=True)
     riot_verification_icon  = Column(Integer, nullable=True)
+    favorite_team_name      = Column(String(100), nullable=True)
+    favorite_team_logo      = Column(String, nullable=True)
+    favorite_team_color     = Column(String(20), nullable=True)
     created_at              = Column(TIMESTAMP, server_default=func.now())

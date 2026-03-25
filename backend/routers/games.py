@@ -62,3 +62,34 @@ def get_live_games(db: Session = Depends(get_db)):
         })
 
     return result[:12]
+
+@router.get("/{riot_game_id}")
+def get_game(riot_game_id: str, db: Session = Depends(get_db)):
+    game = db.query(LiveGame).filter(
+        LiveGame.riot_game_id == riot_game_id,
+        LiveGame.status == "live"
+    ).first()
+    if not game:
+        return {"error": "Game not found"}, 404
+
+    all_puuids = [p.get("puuid") for p in game.blue_team + game.red_team]
+    pro = db.query(ProPlayer).filter(
+        ProPlayer.riot_puuid.in_(all_puuids)
+    ).first()
+
+    return {
+        "id": game.id,
+        "riot_game_id": game.riot_game_id,
+        "queue": QUEUE_NAMES.get(game.queue_type, game.queue_type),
+        "duration_seconds": game.duration_seconds,
+        "bets_open": game.duration_seconds < 300,  # clôture à 5min
+        "blue_team": game.blue_team,
+        "red_team": game.red_team,
+        "pro": {
+            "name": pro.name,
+            "team": pro.team,
+            "accent_color": pro.accent_color,
+            "team_logo_url": pro.team_logo_url,
+        } if pro else None,
+        "fetched_at": game.fetched_at,
+    }

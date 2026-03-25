@@ -10,13 +10,13 @@
 .pro-overlay { position: absolute; inset: 0; z-index: 2; border-radius: 13px; overflow: hidden; transition: transform 0.45s cubic-bezier(0.4,0,0.2,1), opacity 0.45s ease; }
 .game-card:hover .pro-overlay { transform: translateY(-100%); opacity: 0; }
 .pro-bg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; overflow:hidden; }
-.pro-photo { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 120px; height: 150px; object-fit: cover; object-position: top; }
+.pro-photo { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 200px; height: 200px; object-fit: cover; object-position: top; }
 .pro-initials { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Outfit', sans-serif; font-size: 24px; font-weight: 800; border: 2px solid; }
 .pro-role-badge { position: absolute; top: 14px; right: 14px; font-size: 10px; font-weight: 700; letter-spacing: 1px; padding: 3px 8px; border-radius: 4px; font-family: 'Inter', sans-serif; border: 1px solid; }
 .pro-info { position: absolute; bottom: 0; left: 0; right: 0; padding: 12px 16px; background: linear-gradient(to top, #1a1919ee 60%, transparent); }
 .pro-name { font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 800; color: #e8eaf0; line-height: 1; }
 .pro-team { font-size: 11px; font-weight: 600; letter-spacing: 1px; margin-top: 3px; }
-.pro-team-logo { position:absolute; width:160px; height:160px; object-fit:contain; opacity:0.06; }
+.pro-team-logo { position:absolute; width:500px; height:300px; object-fit:contain; opacity:0.17; }
 
 /* ─── GAME INFO ─── */
 .game-info { position: absolute; inset: 0; padding: 16px 18px; z-index: 1; display: flex; flex-direction: column; justify-content: space-between; opacity: 0; transition: opacity 0.3s 0.15s; }

@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import auth, players, bets, coins, profile, upload, admin, games
+from contextlib import asynccontextmanager
+from datetime import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from routers import auth, players, bets, coins, profile, upload, admin, games
 from services.game_poller import poll_pro_games
 import models.user, models.card, models.player, models.match
 import models.live_game, models.bet, models.bet_type
@@ -9,7 +11,20 @@ import models.transaction, models.user_card, models.pro_player
 
 scheduler = AsyncIOScheduler()
 
-app = FastAPI(title="Jinxit API")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    scheduler.add_job(
+        poll_pro_games,
+        "interval",
+        minutes=3,
+        id="poll_games",
+        next_run_time=datetime.now()
+    )
+    scheduler.start()
+    yield
+    scheduler.shutdown()
+
+app = FastAPI(title="Jinxit API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -26,20 +41,6 @@ app.include_router(profile.router)
 app.include_router(upload.router)
 app.include_router(admin.router)
 app.include_router(games.router)
-
-async def startup():
-    scheduler.add_job(
-        poll_pro_games,
-        "interval",
-        minutes=3,
-        id="poll_games",
-        next_run_time=None
-    )
-    scheduler.start()
-
-@app.on_event("shutdown")
-async def shutdown():
-    scheduler.shutdown()
 
 @app.get("/")
 def root():

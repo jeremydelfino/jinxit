@@ -6,6 +6,7 @@ import Bets from './pages/Bets/index.jsx'
 import Profile from './pages/Profile/index.jsx'
 import Login from './pages/Login/index.jsx'
 import Register from './pages/Register/index.jsx'
+import Game from './pages/Game/index.jsx'
 
 function WithNavbar() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/player/:region/:name/:tag" element={<Player />} />
           <Route path="/bets" element={<Bets />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/game/:id" element={<Game />} />
         </Route>
       </Routes>
     </BrowserRouter>
