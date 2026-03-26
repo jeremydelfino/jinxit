@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
 const useAuthStore = create((set) => ({
-  user: JSON.parse(localStorage.getItem('user') || 'null'),
+  user:  JSON.parse(localStorage.getItem('user') || 'null'),
   token: localStorage.getItem('token') || null,
 
   login: (user, token) => {
@@ -16,9 +16,17 @@ const useAuthStore = create((set) => ({
     set({ user: null, token: null })
   },
 
-  updateCoins: (coins) => set(state => ({
-    user: { ...state.user, coins }
-  })),
+  updateCoins: (coins) => set(state => {
+    const updatedUser = { ...state.user, coins }
+    localStorage.setItem('user', JSON.stringify(updatedUser))
+    return { user: updatedUser }
+  }),
+
+  updateUser: (fields) => set(state => {
+    const updatedUser = { ...state.user, ...fields }
+    localStorage.setItem('user', JSON.stringify(updatedUser))
+    return { user: updatedUser }
+  }),
 }))
 
 export default useAuthStore

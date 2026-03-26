@@ -1,14 +1,29 @@
 import './GameCard.css'
 
-const ICON_COLORS = ['#00e5ff', '#d946a8', '#c89b3c', '#22c55e', '#ef4444']
+const CHAMP_VERSION = '14.24.1'
+
+function getChampIcon(championName) {
+  if (!championName || championName === '???') return null
+  return `https://ddragon.leagueoflegends.com/cdn/${CHAMP_VERSION}/img/champion/${championName}.png`
+}
 
 export default function GameCard({ game, onBet }) {
-  const { pro, blueScore, redScore, timer, queue, region, players = [] } = game
+  const {
+    pro, blueScore, redScore, timer,
+    queue, region, blue_team = [], red_team = [],
+  } = game
   const accentColor = pro?.accent_color || '#00e5ff'
+
+  const blueTeam = blue_team ?? []
+  const redTeam  = red_team  ?? []
+
+  const champName = (p) => p.championName || p.championId || '??'
 
   if (pro) {
     return (
-      <div className="game-card">
+      <div className="game-card" onClick={() => onBet?.(game)}>
+
+        {/* ── FACE AVANT : photo du pro ── */}
         <div className="pro-overlay">
           <div className="pro-bg" style={{ background: `linear-gradient(160deg, ${accentColor}15, #242424)` }}>
             {pro.team_logo_url && (
@@ -41,34 +56,69 @@ export default function GameCard({ game, onBet }) {
           </div>
         </div>
 
+        {/* ── FACE ARRIÈRE : infos de la game au hover ── */}
         <div className="game-info">
-          <div className="game-top">
-            <div className="game-players">
-              {players.map((p, i) => (
-                <div key={i} className="player-icon" style={{ background: ICON_COLORS[i % ICON_COLORS.length] + '25', color: ICON_COLORS[i % ICON_COLORS.length] }}>
-                  {p.slice(0, 2).toUpperCase()}
-                </div>
-              ))}
-            </div>
-            <span className="game-timer">{timer}</span>
+
+          {/* Header : timer + queue */}
+          <div className="gi-header">
+            <span className="gi-timer">⏱ {timer}</span>
+            <span className="gi-queue">{queue}</span>
           </div>
 
-          <div className="game-vs">
-            <div className="team-block">
-              <div className="team-name">Blue</div>
-              <div className="team-score score-blue">{blueScore}</div>
+          {/* Draft : champions des deux équipes */}
+          <div className="gi-draft">
+
+            {/* Blue side */}
+            <div className="gi-side gi-blue">
+              <div className="gi-side-label" style={{ color: '#378add' }}>Blue</div>
+              <div className="gi-champs">
+                {blueTeam.slice(0, 5).map((p, i) => {
+                  const name = champName(p)
+                  const icon = getChampIcon(name)
+                  return (
+                    <div key={i} className={`gi-champ ${pro && p.puuid === pro.riot_puuid ? 'gi-champ-pro' : ''}`} style={{ borderColor: '#378add40' }}>
+                      {icon
+                        ? <img src={icon} alt={name} onError={e => { e.target.style.display='none' }} />
+                        : <span>{name.slice(0, 2)}</span>
+                      }
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="gi-score" style={{ color: '#378add' }}>{blueScore}</div>
             </div>
-            <div className="vs-sep">vs</div>
-            <div className="team-block" style={{ textAlign: 'right' }}>
-              <div className="team-name">Red</div>
-              <div className="team-score score-red">{redScore}</div>
+
+            <div className="gi-vs">VS</div>
+
+            {/* Red side */}
+            <div className="gi-side gi-red">
+              <div className="gi-side-label" style={{ color: '#ef4444' }}>Red</div>
+              <div className="gi-champs">
+                {redTeam.slice(0, 5).map((p, i) => {
+                  const name = champName(p)
+                  const icon = getChampIcon(name)
+                  return (
+                    <div key={i} className="gi-champ" style={{ borderColor: '#ef444440' }}>
+                      {icon
+                        ? <img src={icon} alt={name} onError={e => { e.target.style.display='none' }} />
+                        : <span>{name.slice(0, 2)}</span>
+                      }
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="gi-score" style={{ color: '#ef4444' }}>{redScore}</div>
             </div>
           </div>
 
-          <div className="game-footer">
-            <span className="game-queue">{queue} · {region}</span>
-            <button className="bet-btn" style={{ background: `linear-gradient(135deg, ${accentColor}, ${accentColor}aa)`, boxShadow: `0 4px 16px ${accentColor}50` }} onClick={e => { e.stopPropagation(); onBet?.(game) }}>
-              Parier
+          {/* Footer : bouton parier */}
+          <div className="gi-footer">
+            <button
+              className="bet-btn"
+              style={{ background: `linear-gradient(135deg, ${accentColor}, ${accentColor}aa)`, boxShadow: `0 4px 16px ${accentColor}50` }}
+              onClick={e => { e.stopPropagation(); onBet?.(game) }}
+            >
+              Voir & Parier
             </button>
           </div>
         </div>
@@ -76,37 +126,6 @@ export default function GameCard({ game, onBet }) {
     )
   }
 
-  return (
-    <div className="game-card-simple">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <div className="game-players" style={{ display: 'flex' }}>
-          {players.map((p, i) => (
-            <div key={i} className="player-icon" style={{ background: ICON_COLORS[i % ICON_COLORS.length] + '25', color: ICON_COLORS[i % ICON_COLORS.length] }}>
-              {p.slice(0, 2).toUpperCase()}
-            </div>
-          ))}
-        </div>
-        <span className="game-timer">{timer}</span>
-      </div>
-
-      <div className="game-vs" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-        <div className="team-block">
-          <div className="team-name">Blue side</div>
-          <div className="team-score score-blue">{blueScore}</div>
-        </div>
-        <div className="vs-sep">vs</div>
-        <div className="team-block" style={{ textAlign: 'right' }}>
-          <div className="team-name">Red side</div>
-          <div className="team-score score-red">{redScore}</div>
-        </div>
-      </div>
-
-      <div className="game-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span className="game-queue">{queue} · {region}</span>
-        <button className="bet-btn" style={{ background: 'linear-gradient(135deg, #00e5ff, #00b8cc)', boxShadow: '0 4px 16px #00e5ff50' }} onClick={e => { e.stopPropagation(); onBet?.(game) }}>
-          Parier
-        </button>
-      </div>
-    </div>
-  )
+  // ── Carte sans pro (ne devrait plus apparaître après le filtre Home) ──
+  return null
 }

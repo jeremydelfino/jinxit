@@ -4,14 +4,16 @@ import { useEffect, useState } from 'react'
 import useAuthStore from '../../../store/auth'
 import api from '../../../api/client'
 
+
 export default function Navbar() {
   const navigate  = useNavigate()
   const location  = useLocation()
-  const { user, token, logout, updateCoins } = useAuthStore()
-  const [scrolled, setScrolled] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
-
-  // Coins dynamiques — refresh toutes les 30s
+  const { user, logout, updateUser } = useAuthStore()
+  const [scrolled,      setScrolled]      = useState(false)
+  const [menuOpen,      setMenuOpen]      = useState(false)
+  const [dailyAvailable, setDailyAvailable] = useState(false)
+  const [dailyClaiming,  setDailyClaiming]  = useState(false)
+  const [dailyFlash,     setDailyFlash]     = useState(false) // animation +100
 
   // Scroll effect
   useEffect(() => {
@@ -19,6 +21,37 @@ export default function Navbar() {
     window.addEventListener('scroll', handler)
     return () => window.removeEventListener('scroll', handler)
   }, [])
+
+  // Fetch profil + statut daily au montage
+  useEffect(() => {
+    if (!user) return
+    Promise.all([
+      api.get('/profile/me'),
+      api.get('/coins/balance'),
+    ]).then(([profileRes, balanceRes]) => {
+      updateUser({
+        coins:      profileRes.data.coins,
+        avatar_url: profileRes.data.avatar_url,
+      })
+      setDailyAvailable(balanceRes.data.daily_disponible)
+    }).catch(() => {})
+  }, [])
+
+  const handleDaily = async () => {
+    if (!dailyAvailable || dailyClaiming) return
+    setDailyClaiming(true)
+    try {
+      const res = await api.post('/coins/daily')
+      updateUser({ coins: res.data.coins_total })
+      setDailyAvailable(false)
+      setDailyFlash(true)
+      setTimeout(() => setDailyFlash(false), 2000)
+    } catch {
+      // déjà réclamé
+    } finally {
+      setDailyClaiming(false)
+    }
+  }
 
   const isActive = (path) => location.pathname === path
 
@@ -52,6 +85,22 @@ export default function Navbar() {
       <div className="navbar-right">
         {user ? (
           <>
+            {/* ── DAILY BONUS ── */}
+            <div className="daily-wrap">
+              <button
+                className={`daily-btn ${dailyAvailable ? 'available' : 'claimed'} ${dailyClaiming ? 'claiming' : ''}`}
+                onClick={handleDaily}
+                disabled={!dailyAvailable || dailyClaiming}
+                title={dailyAvailable ? 'Récupérer ton bonus quotidien (+100 coins)' : 'Bonus déjà réclamé aujourd\'hui'}
+              >
+                <span className="daily-icon">{dailyClaiming ? '⏳' : '🎁'}</span>
+                {dailyAvailable && <span className="daily-ping" />}
+              </button>
+              {dailyFlash && (
+                <span className="daily-flash">+100 🪙</span>
+              )}
+            </div>
+
             {/* Coins */}
             <div className="navbar-coins" onClick={() => navigate('/profile')}>
               <div className="coins-icon">

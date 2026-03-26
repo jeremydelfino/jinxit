@@ -1,0 +1,163 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap');
+
+@keyframes fade-up  { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+@keyframes shimmer  { 0%{transform:translateX(-100%)} 100%{transform:translateX(200%)} }
+@keyframes spin     { to{transform:rotate(360deg)} }
+@keyframes card-in  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+@keyframes blink    { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* ── PAGE ── */
+.bets-page { min-height:100vh; background:#1a1919; padding-bottom:80px; }
+
+/* ── HEADER ── */
+.bets-header { background:#1e1e1e; border-bottom:1px solid #ffffff08; padding:28px 40px 24px; }
+.bets-header-inner { max-width:1000px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; animation:fade-up 0.4s ease both; }
+.bets-title { font-family:'Outfit',sans-serif; font-size:26px; font-weight:800; color:#e8eaf0; }
+.bets-sub   { font-size:13px; color:#6b7280; font-family:'Inter',sans-serif; margin-top:3px; }
+.bets-balance { display:flex; align-items:center; gap:8px; background:#242424; border:1px solid #ffffff08; border-radius:10px; padding:10px 16px; font-family:'Inter',sans-serif; font-size:14px; font-weight:600; color:#c89b3c; }
+.coin-dot { width:8px; height:8px; border-radius:50%; background:#c89b3c; box-shadow:0 0 8px #c89b3c80; }
+.coin-small { font-size:10px; color:#6b7280; font-weight:400; }
+
+/* ── CONTENT ── */
+.bets-content { max-width:1000px; margin:0 auto; padding:28px 40px; }
+
+/* ── STATS ── */
+.bets-stats { display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin-bottom:24px; animation:fade-up 0.4s ease 0.1s both; }
+.bets-stat-card { background:#242424; border:1px solid #ffffff08; border-radius:12px; padding:16px 10px; display:flex; flex-direction:column; align-items:center; gap:5px; transition:all 0.2s; }
+.bets-stat-card:hover { border-color:#ffffff15; transform:translateY(-2px); }
+.bst-icon  { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:14px; }
+.bst-val   { font-family:'Outfit',sans-serif; font-size:19px; font-weight:800; color:#e8eaf0; }
+.bst-label { font-size:10px; color:#6b7280; font-family:'Inter',sans-serif; text-align:center; }
+
+/* ── FILTRES ── */
+.bets-filters { display:flex; gap:8px; margin-bottom:20px; animation:fade-up 0.4s ease 0.15s both; }
+.filter-btn { background:#242424; border:1px solid #ffffff08; border-radius:8px; padding:8px 16px; font-size:12px; font-weight:600; color:#6b7280; font-family:'Inter',sans-serif; cursor:pointer; transition:all 0.2s; }
+.filter-btn:hover { border-color:#ffffff20; color:#9ca3af; }
+.filter-btn.active { background:#00e5ff12; border-color:#00e5ff30; color:#00e5ff; }
+
+/* ── LOADING / EMPTY ── */
+.bets-loading { display:flex; flex-direction:column; align-items:center; gap:14px; padding:80px 0; color:#4b5563; font-size:13px; font-family:'Inter',sans-serif; }
+.bets-spinner { width:32px; height:32px; border:3px solid #ffffff10; border-top-color:#00e5ff; border-radius:50%; animation:spin 0.8s linear infinite; }
+.bets-empty { display:flex; flex-direction:column; align-items:center; gap:12px; padding:80px 0; text-align:center; }
+.bets-empty-icon  { font-size:40px; }
+.bets-empty-title { font-family:'Outfit',sans-serif; font-size:18px; font-weight:700; color:#e8eaf0; }
+.bets-empty-sub   { font-size:13px; color:#6b7280; font-family:'Inter',sans-serif; }
+.bets-cta {
+  margin-top:8px; background:linear-gradient(135deg,#00e5ff,#00b8cc); color:#1a1a1a; border:none;
+  border-radius:9px; padding:10px 24px; font-size:13px; font-weight:700; font-family:'Inter',sans-serif;
+  cursor:pointer; position:relative; overflow:hidden; transition:all 0.2s;
+}
+.bets-cta::after { content:''; position:absolute; top:0; left:-100%; width:60%; height:100%; background:linear-gradient(90deg,transparent,#ffffff50,transparent); animation:shimmer 2s ease infinite; }
+.bets-cta:hover { transform:scale(1.04); box-shadow:0 4px 18px #00e5ff40; }
+
+/* ── LISTE ── */
+.bets-list { display:flex; flex-direction:column; gap:10px; }
+
+/* ── TICKET ROW ── */
+.ticket-row {
+  display:flex; align-items:stretch;
+  background:#1e1e1e; border:1px solid #ffffff08; border-radius:14px;
+  overflow:hidden; position:relative;
+  animation:card-in 0.4s ease both;
+  transition:border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+.ticket-row:hover { border-color:#ffffff14; transform:translateX(3px); box-shadow:0 4px 24px #00000030; }
+
+/* barre colorée gauche */
+.ticket-bar { width:4px; flex-shrink:0; }
+
+/* corps du ticket */
+.ticket-body {
+  flex:1; padding:16px 20px;
+  display:flex; align-items:center; gap:32px;
+  min-width:0;
+}
+
+/* ── SÉLECTIONS ── */
+.ticket-selections { flex:1; display:flex; flex-direction:column; gap:6px; min-width:0; }
+.ticket-sel-row { display:flex; align-items:center; gap:10px; font-family:'Inter',sans-serif; }
+.ticket-sel-type { font-size:12px; color:#9ca3af; flex-shrink:0; }
+.ticket-sel-val  { font-size:13px; font-weight:700; flex-shrink:0; }
+.ticket-sel-x    { font-size:11px; color:#c89b3c; margin-left:auto; flex-shrink:0; }
+.ticket-sel-status { font-size:12px; margin-left:6px; flex-shrink:0; }
+.ticket-selections .ticket-sel-row:not(:last-child) { padding-bottom:6px; border-bottom:1px solid #ffffff06; }
+
+/* ── META ── */
+.ticket-meta { display:flex; gap:24px; align-items:center; flex-shrink:0; }
+.ticket-meta-item { display:flex; flex-direction:column; gap:3px; }
+.ticket-meta-label { font-size:10px; color:#4b5563; font-family:'Inter',sans-serif; }
+.ticket-meta-val   { font-size:13px; font-weight:600; color:#e8eaf0; font-family:'Inter',sans-serif; white-space:nowrap; }
+
+/* ── DROITE (badge + bouton game) ── */
+.ticket-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px 12px 0;
+  flex-shrink: 0;
+}
+
+/* ── BOUTON VOIR LA PARTIE ── */
+.ticket-game-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #00e5ff30;
+  background: #00e5ff0a;
+  color: #00e5ff;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+.ticket-game-btn::after {
+  content: '';
+  position: absolute; top: 0; left: -100%; width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent, #00e5ff25, transparent);
+  animation: shimmer 2s ease infinite;
+}
+.ticket-game-btn:hover {
+  background: #00e5ff15;
+  border-color: #00e5ff60;
+  box-shadow: 0 0 12px #00e5ff20;
+  transform: translateY(-1px);
+}
+
+/* point live qui clignote */
+.ticket-game-live-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #00e5ff;
+  box-shadow: 0 0 6px #00e5ff;
+  flex-shrink: 0;
+  animation: blink 1.2s infinite;
+}
+
+/* ── BADGE STATUT ── */
+.ticket-status-badge {
+  display:flex; align-items:center; gap:6px;
+  padding:6px 14px;
+  border-radius:9px; border:1px solid;
+  font-size:12px; font-weight:700; font-family:'Inter',sans-serif;
+  white-space:nowrap;
+}
+.ticket-status-icon { font-size:13px; }
+
+/* ── RESPONSIVE ── */
+@media (max-width:1024px) { .bets-stats { grid-template-columns:repeat(3,1fr); } }
+@media (max-width:768px) {
+  .bets-header { padding:20px; }
+  .bets-content { padding:16px 20px; }
+  .bets-stats { grid-template-columns:repeat(2,1fr); }
+  .ticket-body { flex-wrap:wrap; gap:14px; }
+  .ticket-meta { flex-wrap:wrap; gap:14px; }
+  .bets-filters { flex-wrap:wrap; }
+  .ticket-game-btn span:last-child { display: none; }
+}

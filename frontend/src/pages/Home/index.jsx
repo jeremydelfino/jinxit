@@ -14,8 +14,6 @@ const REGIONS = [
   { value: 'TR',  label: 'TR',  color: '#ef4444' },
 ]
 
-const ICON_COLORS = ['#00e5ff', '#d946a8', '#c89b3c', '#22c55e', '#ef4444']
-
 const STATS = [
   { icon: '⚡', val: '1,247', label: 'Parties en direct',       color: '#00e5ff', bg: '#00e5ff12' },
   { icon: '🪙', val: '842K',  label: "Coins misés aujourd'hui", color: '#c89b3c', bg: '#c89b3c12' },
@@ -30,33 +28,39 @@ function formatDuration(seconds) {
 }
 
 function formatGameForCard(game) {
-  const blueTeam = game.blue_team || []
-  const redTeam = game.red_team || []
-  const players = [...blueTeam, ...redTeam]
+  const blueTeam = game.blue_team ?? []
+  const redTeam  = game.red_team  ?? []
+  const players  = [...blueTeam, ...redTeam]
     .slice(0, 5)
     .map(p => p.summonerName?.slice(0, 2).toUpperCase() || '??')
 
   const blueKills = blueTeam.reduce((acc, p) => acc + (p.kills || 0), 0)
-  const redKills = redTeam.reduce((acc, p) => acc + (p.kills || 0), 0)
+  const redKills  = redTeam.reduce((acc, p)  => acc + (p.kills || 0), 0)
 
   return {
-    id: game.id,
-    timer: formatDuration(game.duration_seconds || 0),
-    blueScore: blueKills,
-    redScore: redKills,
-    queue: game.queue || 'Ranked Solo',
-    region: game.pro?.region || 'EUW',
+    id:               game.id,
+    riot_game_id:     game.riot_game_id,
+    timer:            formatDuration(game.duration_seconds || 0),
+    blueScore:        blueKills,
+    redScore:         redKills,
+    queue:            game.queue || 'Ranked Solo',
+    region:           game.pro?.region || 'EUW',
     players,
-    pro: game.pro ? { ...game.pro } : null,
+    pro:              game.pro ? { ...game.pro } : null,
+    blue_team:        blueTeam,
+    red_team:         redTeam,
+    duration_seconds: game.duration_seconds,
   }
 }
 
 export default function Home() {
   const navigate = useNavigate()
-  const [search, setSearch] = useState('')
-  const [region, setRegion] = useState('EUW')
-  const [liveGames, setLiveGames] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [search, setSearch]                   = useState('')
+  const [region, setRegion]                   = useState('EUW')
+  const [liveGames, setLiveGames]             = useState([])
+  const [loading, setLoading]                 = useState(true)
+  const [suggestions, setSuggestions]         = useState([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
 
   useEffect(() => {
     const fetchGames = async () => {
@@ -69,20 +73,10 @@ export default function Home() {
         setLoading(false)
       }
     }
-
     fetchGames()
     const interval = setInterval(fetchGames, 30 * 1000)
     return () => clearInterval(interval)
   }, [])
-
-  const handleSearch = () => {
-    if (!search.trim()) return
-    const [name, tag] = search.split('#')
-    navigate(`/player/${region}/${encodeURIComponent(name.trim())}/${(tag || region).trim()}`)
-  }
-
-  const [suggestions, setSuggestions] = useState([])
-  const [showSuggestions, setShowSuggestions] = useState(false)
 
   useEffect(() => {
     if (search.length < 2) { setSuggestions([]); return }
@@ -96,13 +90,22 @@ export default function Home() {
     return () => clearTimeout(timer)
   }, [search])
 
+  const handleSearch = () => {
+    if (!search.trim()) return
+    const [name, tag] = search.split('#')
+    navigate(`/player/${region}/${encodeURIComponent(name.trim())}/${(tag || region).trim()}`)
+  }
+
   const handleSuggestionClick = (s) => {
     navigate(`/player/${s.region}/${encodeURIComponent(s.summoner_name)}/${s.tag_line}`)
     setShowSuggestions(false)
     setSearch('')
   }
 
-  const games = liveGames.map(formatGameForCard)
+  // ✅ Uniquement les games avec un pro joueur détecté
+  const games = liveGames
+    .filter(g => g.pro !== null)
+    .map(formatGameForCard)
 
   return (
     <div className="home">
@@ -121,6 +124,7 @@ export default function Home() {
           Recherche un joueur, regarde sa partie live<br />
           et mise tes coins virtuels
         </p>
+
         <div className="search-wrap" onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}>
           <div className="search-glow" />
           <input
@@ -136,9 +140,9 @@ export default function Home() {
             value={region}
             onChange={e => setRegion(e.target.value)}
             style={{
-              color: REGIONS.find(r => r.value === region)?.color || '#e8eaf0',
+              color:       REGIONS.find(r => r.value === region)?.color || '#e8eaf0',
               borderColor: (REGIONS.find(r => r.value === region)?.color || '#ffffff15') + '40',
-              background: (REGIONS.find(r => r.value === region)?.color || '#ffffff') + '12',
+              background:  (REGIONS.find(r => r.value === region)?.color || '#ffffff') + '12',
             }}
           >
             {REGIONS.map(r => (
@@ -149,28 +153,23 @@ export default function Home() {
           </select>
           <button className="search-btn" onClick={handleSearch}>Rechercher</button>
 
-          {/* ─── SUGGESTIONS ─── */}
           {showSuggestions && suggestions.length > 0 && (
             <div className="suggestions-dropdown">
               {suggestions.map((s, i) => (
-                <div
-                  key={i}
-                  className="suggestion-item"
-                  onMouseDown={() => handleSuggestionClick(s)}
-                >
+                <div key={i} className="suggestion-item" onMouseDown={() => handleSuggestionClick(s)}>
                   <div className="suggestion-icon">
                     {s.profile_icon_url ? (
-                      <img
-                      src={s.profile_icon_url}
-                      alt=""
-                      referrerPolicy="no-referrer"
-                      onError={e => { e.target.style.display = 'none' }}
-                    />
+                      <img src={s.profile_icon_url} alt="" referrerPolicy="no-referrer" onError={e => { e.target.style.display = 'none' }} />
                     ) : s.summoner_name.slice(0, 2).toUpperCase()}
                   </div>
                   <div className="suggestion-info">
-                    <div className="suggestion-name">{s.summoner_name}<span className="suggestion-tag">#{s.tag_line}</span></div>
-                    <div className="suggestion-meta">{s.tier ? `${s.tier} ${s.rank}` : 'Non classé'} · {s.region}</div>
+                    <div className="suggestion-name">
+                      {s.summoner_name}
+                      <span className="suggestion-tag">#{s.tag_line}</span>
+                    </div>
+                    <div className="suggestion-meta">
+                      {s.tier ? `${s.tier} ${s.rank}` : 'Non classé'} · {s.region}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -217,7 +216,7 @@ export default function Home() {
               <GameCard
                 key={game.id}
                 game={game}
-                onBet={g => console.log('Parier sur', g)}
+                onBet={g => navigate(`/game/${g.id}`)}
               />
             ))}
           </div>
