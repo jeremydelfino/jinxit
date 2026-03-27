@@ -5,7 +5,7 @@ import GameCard from '../../components/ui/GameCard'
 import api from '../../api/client'
 
 const REGIONS = [
-  { value: 'EUW', label: 'EUW', color: '#378add' },
+  { value: 'EUW', label: 'EUW', color: '#f59e0b' },
   { value: 'EUN', label: 'EUN', color: '#378add' },
   { value: 'NA',  label: 'NA',  color: '#22c55e' },
   { value: 'KR',  label: 'KR',  color: '#f59e0b' },
@@ -173,10 +173,6 @@ export default function Home() {
       {/* ─── GAMES ─── */}
       <div className="section">
         <div className="section-header">
-          <div className="section-title">
-            Parties en cours
-            <span className="live-pill"><span className="live-dot" />LIVE</span>
-          </div>
           <span className="section-link">Voir tout →</span>
         </div>
 

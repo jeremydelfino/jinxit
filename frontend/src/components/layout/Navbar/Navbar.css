@@ -45,7 +45,7 @@
   font-size: 20px;
   font-weight: 900;
   letter-spacing: 3px;
-  background: linear-gradient(90deg, #00e5ff, #d946a8, #c89b3c);
+  background: linear-gradient(90deg, #65BD62, #F2E2C9, #c89b3c);
   background-size: 200%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -58,11 +58,11 @@
 }
 .logo-j { font-size: 24px; font-weight: 900; }
 .logo-dot {
-  width: 5px; height: 5px; background: #00e5ff; border-radius: 50%;
+  width: 5px; height: 5px; background: #65BD62; border-radius: 50%;
   margin-left: 2px; margin-bottom: 12px; flex-shrink: 0;
   animation: pulse-dot 2s ease-in-out infinite;
   -webkit-text-fill-color: initial;
-  box-shadow: 0 0 8px #00e5ff;
+  box-shadow: 0 0 8px #65BD62;
 }
 
 /* ── NAV LINKS ── */
@@ -83,7 +83,7 @@
 .nav-link-indicator {
   position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%);
   width: 16px; height: 2px;
-  background: linear-gradient(90deg, #00e5ff, #d946a8); border-radius: 1px;
+  background: linear-gradient(90deg, #65BD62, #F2E2C9); border-radius: 1px;
 }
 
 /* ── RIGHT ── */
@@ -263,7 +263,7 @@
 .btn-nav-ghost:hover { border-color: #ffffff28; color: #e8eaf0; background: #ffffff06; }
 
 .btn-nav-primary {
-  position: relative; background: linear-gradient(135deg, #00e5ff, #00b8cc);
+  position: relative; background: linear-gradient(135deg, #F2E2C9, #65BD62);
   color: #1a1a1a; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700;
   padding: 8px 18px; border-radius: 9px; cursor: pointer; border: none;
   overflow: hidden; transition: all 0.2s;
@@ -273,7 +273,7 @@
   background: linear-gradient(90deg, transparent, #ffffff50, transparent);
   animation: shimmer 2.5s ease infinite;
 }
-.btn-nav-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 20px #00e5ff50; }
+.btn-nav-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 20px #22ff0050; }
 
 /* ── RESPONSIVE ── */
 @media (max-width: 768px) {

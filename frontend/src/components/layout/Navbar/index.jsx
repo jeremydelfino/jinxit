@@ -63,7 +63,7 @@ export default function Navbar() {
 
       {/* LOGO */}
       <div className="navbar-logo" onClick={() => navigate('/')}>
-        <span className="logo-j">J</span>INXIT
+        <span className="logo-j">J</span>UNGLEGAP
         <span className="logo-dot" />
       </div>
 

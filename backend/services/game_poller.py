@@ -25,8 +25,10 @@ from services.riot import get_live_game_by_puuid, get_match_result
 
 logger = logging.getLogger(__name__)
 
-
 def extract_summoner_name(p: dict) -> str:
+    riot_id = p.get("riotId", "")
+    if riot_id:
+        return riot_id.split("#")[0]
     return (
         p.get("riotIdGameName") or
         p.get("gameName") or
@@ -37,12 +39,15 @@ def extract_summoner_name(p: dict) -> str:
 
 def build_participant(p: dict) -> dict:
     return {
-        "puuid":        p.get("puuid", ""),
+        "puuid":        p.get("puuid") or "",
         "summonerName": extract_summoner_name(p),
         "championId":   p.get("championId"),
         "championName": p.get("championName", ""),
         "teamId":       p.get("teamId"),
-        "role":         p.get("individualPosition", "") or p.get("position", ""),
+        "role":         p.get("individualPosition", "") or p.get("position", "") or "",
+        # ✅ Spells nécessaires pour la détection de rôle côté frontend
+        "spell1Id":     p.get("spell1Id"),
+        "spell2Id":     p.get("spell2Id"),
     }
 
 
@@ -179,29 +184,33 @@ async def poll_pro_games():
                     ).first()
 
                     if not existing:
-                        blue_team = [build_participant(p) for p in participants if p.get("teamId") == 100]
-                        red_team  = [build_participant(p) for p in participants if p.get("teamId") == 200]
-
-                        game = LiveGame(
-                            searched_player_id=1,
-                            riot_game_id=riot_game_id,
-                            queue_type=str(live.get("gameQueueConfigId", "")),
-                            blue_team=blue_team,
-                            red_team=red_team,
-                            duration_seconds=live.get("gameLength", 0),
-                            status="live",
-                        )
-                        db.add(game)
-                        logger.info(f"   ✅ Nouvelle partie: {pro.name} ({riot_game_id})")
+                        try:
+                            blue_team = [build_participant(p) for p in participants if p.get("teamId") == 100]
+                            red_team  = [build_participant(p) for p in participants if p.get("teamId") == 200]
+                            game = LiveGame(
+                                searched_player_id=1,
+                                riot_game_id=riot_game_id,
+                                queue_type=str(live.get("gameQueueConfigId", "")),
+                                blue_team=blue_team,
+                                red_team=red_team,
+                                duration_seconds=live.get("gameLength", 0),
+                                status="live",
+                            )
+                            db.add(game)
+                            db.flush()  # détecte le doublon immédiatement
+                            logger.info(f"   ✅ Nouvelle partie: {pro.name} ({riot_game_id})")
+                        except Exception:
+                            db.rollback()
+                            logger.warning(f"   ⚠️ Game {riot_game_id} déjà insérée, skip")
 
                     else:
                         existing.duration_seconds = live.get("gameLength", 0)
                         if existing.status == "ended":
                             existing.status = "live"
 
-                        # ✅ Auto-patch des noms vides à chaque poll
+                        # Patch noms + spells vides à chaque poll
                         needs_update = any(
-                            not p.get("summonerName")
+                            not p.get("summonerName") or p.get("spell1Id") is None
                             for p in (existing.blue_team or []) + (existing.red_team or [])
                         )
                         if needs_update:
@@ -210,7 +219,9 @@ async def poll_pro_games():
                                     **p,
                                     "summonerName": extract_summoner_name(
                                         puuid_to_participant.get(p.get("puuid"), p)
-                                    ) or p.get("summonerName", "")
+                                    ) or p.get("summonerName", ""),
+                                    "spell1Id": puuid_to_participant.get(p.get("puuid"), {}).get("spell1Id") or p.get("spell1Id"),
+                                    "spell2Id": puuid_to_participant.get(p.get("puuid"), {}).get("spell2Id") or p.get("spell2Id"),
                                 }
                                 for p in (existing.blue_team or [])
                             ]
@@ -219,15 +230,17 @@ async def poll_pro_games():
                                     **p,
                                     "summonerName": extract_summoner_name(
                                         puuid_to_participant.get(p.get("puuid"), p)
-                                    ) or p.get("summonerName", "")
+                                    ) or p.get("summonerName", ""),
+                                    "spell1Id": puuid_to_participant.get(p.get("puuid"), {}).get("spell1Id") or p.get("spell1Id"),
+                                    "spell2Id": puuid_to_participant.get(p.get("puuid"), {}).get("spell2Id") or p.get("spell2Id"),
                                 }
                                 for p in (existing.red_team or [])
                             ]
                             flag_modified(existing, "blue_team")
                             flag_modified(existing, "red_team")
-                            logger.info(f"   🔄 Noms mis à jour pour game {riot_game_id}")
+                            logger.info(f"   🔄 Noms + spells mis à jour pour game {riot_game_id}")
 
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(1.5)
 
             except Exception as e:
                 logger.error(f"   ❌ Erreur pour {pro.name}: {e}")

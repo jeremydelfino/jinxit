@@ -17,7 +17,7 @@
   transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;
 }
 .game-card:hover {
-  border-color: #00e5ff30;
+  border-color: #00ff3330;
   box-shadow: 0 8px 32px #00000050;
   transform: translateY(-3px);
 }
@@ -74,7 +74,7 @@
   display: flex; flex-direction: column; justify-content: space-between;
   opacity: 0;
   transition: opacity 0.25s 0.2s;
-  background: linear-gradient(160deg, #1a1a2e, #1c1c1c);
+  background: linear-gradient(160deg, #3d3d3d, #1c1c1c);
 }
 .game-card:hover .game-info { opacity: 1; }
 
@@ -127,7 +127,7 @@
 
 /* Pro player highlight */
 .gi-champ-pro {
-  border-color: #00e5ff !important;
+  border-color: #f5f5e5 !important;
   box-shadow: 0 0 8px #00e5ff50;
 }
 
