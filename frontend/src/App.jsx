@@ -7,6 +7,7 @@ import Bets from './pages/Bets/index.jsx'
 import Profile from './pages/Profile/index.jsx'
 import Login from './pages/Login/index.jsx'
 import Register from './pages/Register/index.jsx'
+import Leaderboard from './pages/Leaderboard/index.jsx'
 
 function WithNavbar() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="/player/:region/:name/:tag"     element={<Player />} />
           <Route path="/bets"                          element={<Bets />} />
           <Route path="/profile"                       element={<Profile />} />
+          <Route path="/leaderboard"                    element={<Leaderboard />} />
         </Route>
       </Routes>
     </BrowserRouter>

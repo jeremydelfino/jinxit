@@ -165,7 +165,7 @@ async def get_player(region: str, game_name: str, tag_line: str, db: Session = D
             if bc: jinxit_profile["equipped_banner"] = bc.image_url
 
     return {
-        "player": {"summoner_name": player.summoner_name, "tag_line": player.tag_line,
+        "player": {"id":player.id,  "summoner_name": player.summoner_name, "tag_line": player.tag_line,
             "region": player.region, "tier": player.tier, "rank": player.rank,
             "lp": player.lp, "profile_icon_url": player.profile_icon_url},
         "live_game": live_game_data, "match_history": matches, "jinxit_profile": jinxit_profile,

@@ -105,6 +105,12 @@ export default function Home() {
       <div className="bg-glow bg-glow-2" />
       <div className="bg-glow bg-glow-3" />
 
+      {/* ─── IMAGES FLOTTANTES ─── */}
+      <img src="/logo.png"  className="bg-float bg-float-1" alt="" />
+      <img src="/teemo1_png.png" className="bg-float bg-float-2" alt="" />
+      <img src="/teemo2.png"  className="bg-float bg-float-3" alt="" />
+      <img src="/jungle1.webp" className="bg-float bg-float-4" alt="" />
+
       {/* ─── HERO ─── */}
       <div className="hero">
         <div className="hero-eyebrow">Paris virtuels · League of Legends</div>

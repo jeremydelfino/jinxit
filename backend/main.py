@@ -3,11 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from datetime import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from routers import auth, players, bets, coins, profile, upload, admin, games
 from services.game_poller import poll_pro_games
 import models.user, models.card, models.player, models.match
 import models.live_game, models.bet, models.bet_type
 import models.transaction, models.user_card, models.pro_player
+import models.favorite, models.notification
+from routers import auth, players, bets, coins, profile, upload, admin, games, favorites, leaderboard
 
 scheduler = AsyncIOScheduler()
 
@@ -41,6 +42,9 @@ app.include_router(profile.router)
 app.include_router(upload.router)
 app.include_router(admin.router)
 app.include_router(games.router)
+app.include_router(favorites.router)
+app.include_router(leaderboard.router)
+
 
 @app.get("/")
 def root():

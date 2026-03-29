@@ -1,8 +1,10 @@
 import './Player.css'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api from '../../api/client'
+import useAuthStore from '../../store/auth'
 
+/* ── CONSTANTES ────────────────────────────────────────────── */
 const TIER_COLORS = {
   CHALLENGER: '#f4c430', GRANDMASTER: '#ef4444', MASTER: '#a78bfa',
   DIAMOND: '#378add', EMERALD: '#22c55e', PLATINUM: '#00e5ff',
@@ -13,6 +15,7 @@ const QUEUE_NAMES = {
   420: 'Ranked Solo', 440: 'Ranked Flex', 400: 'Normal', 450: 'ARAM',
 }
 
+/* ── HELPERS ───────────────────────────────────────────────── */
 function formatDuration(seconds) {
   const m = Math.floor(seconds / 60)
   const s = seconds % 60
@@ -54,13 +57,19 @@ function groupByChampion(matches) {
     .slice(0, 5)
 }
 
+/* ── COMPOSANT ─────────────────────────────────────────────── */
 export default function Player() {
   const { region, name, tag } = useParams()
-  const navigate = useNavigate()
-  const [data,    setData]    = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState(null)
+  const navigate              = useNavigate()
+  const { user }              = useAuthStore()
 
+  const [data,       setData]       = useState(null)
+  const [loading,    setLoading]    = useState(true)
+  const [error,      setError]      = useState(null)
+  const [isFav,      setIsFav]      = useState(false)
+  const [favLoading, setFavLoading] = useState(false)
+
+  /* ── Fetch joueur + statut favori ── */
   useEffect(() => {
     const fetchPlayer = async () => {
       setLoading(true)
@@ -68,6 +77,13 @@ export default function Player() {
       try {
         const res = await api.get(`/players/${region}/${name}/${tag}`)
         setData(res.data)
+
+        if (user && res.data?.player?.id) {
+          try {
+            const favRes = await api.get(`/favorites/check/${res.data.player.id}`)
+            setIsFav(favRes.data.is_favorite)
+          } catch {}
+        }
       } catch (e) {
         setError(e.response?.data?.detail || 'Joueur introuvable')
       } finally {
@@ -77,6 +93,23 @@ export default function Player() {
     fetchPlayer()
   }, [region, name, tag])
 
+  /* ── Toggle favori ── */
+  const handleFavToggle = useCallback(async () => {
+    if (!user || !data?.player?.id || favLoading) return
+    setFavLoading(true)
+    try {
+      if (isFav) {
+        await api.delete(`/favorites/${data.player.id}`)
+        setIsFav(false)
+      } else {
+        await api.post(`/favorites/${data.player.id}`)
+        setIsFav(true)
+      }
+    } catch {}
+    finally { setFavLoading(false) }
+  }, [user, data?.player?.id, isFav, favLoading])
+
+  /* ── États intermédiaires ── */
   if (loading) return (
     <div className="player-page">
       <div className="player-loading">
@@ -96,18 +129,19 @@ export default function Player() {
     </div>
   )
 
+  /* ── Dérivations ── */
   const { player, live_game, match_history, jinxit_profile, pro_player } = data
   const tierColor   = TIER_COLORS[player.tier] || '#9ca3af'
   const accentColor = pro_player?.accent_color || '#00e5ff'
   const champStats  = groupByChampion(match_history || [])
 
-  // Données live pour affichage dans la card (kills, champion joué...)
   const liveParticipant = live_game?.participants?.find(
     p => p.puuid === player.riot_puuid || p.summonerName === player.summoner_name
   )
   const blueKills = live_game?.participants?.filter(p => p.teamId === 100).reduce((a, p) => a + (p.kills || 0), 0) || 0
   const redKills  = live_game?.participants?.filter(p => p.teamId === 200).reduce((a, p) => a + (p.kills || 0), 0) || 0
 
+  /* ── Render ── */
   return (
     <div className="player-page">
 
@@ -118,18 +152,15 @@ export default function Player() {
           : { background: 'linear-gradient(135deg, #00e5ff08, #1a1919 60%)' }
         } />
         {pro_player?.team_logo_url && (
-          <img
-            className="player-banner-team-logo"
-            src={pro_player.team_logo_url}
-            alt={pro_player.team}
-            referrerPolicy="no-referrer"
-          />
+          <img className="player-banner-team-logo" src={pro_player.team_logo_url} alt={pro_player.team} referrerPolicy="no-referrer" />
         )}
         <div className="player-banner-overlay" />
       </div>
 
-      {/* ─── PRO CARD FIFA flottante ─── */}
+      {/* ─── HEADER FLOTTANT ─── */}
       <div className="pro-float-card">
+
+        {/* Photo / avatar */}
         <div className="pro-photo-card" style={!pro_player?.photo_url ? { display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#242424' } : {}}>
           {pro_player?.photo_url ? (
             <img src={pro_player.photo_url} alt={pro_player.name} referrerPolicy="no-referrer"
@@ -144,7 +175,10 @@ export default function Player() {
           <div className="pro-photo-accent" style={{ background: `linear-gradient(90deg, ${accentColor}, ${accentColor}88)` }} />
         </div>
 
+        {/* Infos */}
         <div className="pro-card-info">
+
+          {/* Ligne nom + badges + bouton favori */}
           <div className="pro-card-name">
             {player.summoner_name}
             <span className="pro-card-tag">#{player.tag_line}</span>
@@ -154,7 +188,25 @@ export default function Player() {
                 {pro_player.name} · {pro_player.team}
               </span>
             )}
+
+            {/* ── BOUTON FAVORI ── */}
+            {user && (
+              <button
+                className={`fav-btn ${isFav ? 'fav-btn--active' : ''} ${favLoading ? 'fav-btn--loading' : ''}`}
+                onClick={handleFavToggle}
+                title={isFav ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill={isFav ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                </svg>
+                <span className="fav-btn-label">
+                  {favLoading ? '...' : isFav ? 'Favori' : 'Suivre'}
+                </span>
+              </button>
+            )}
           </div>
+
+          {/* Badges rang / région / rôle */}
           <div className="pro-card-badges">
             {player.tier && (
               <span className="meta-badge" style={{ color: tierColor, background: tierColor + '15', borderColor: tierColor + '30' }}>
@@ -175,6 +227,8 @@ export default function Player() {
 
       {/* ─── MAIN LAYOUT ─── */}
       <div className="player-layout">
+
+        {/* ── COLONNE GAUCHE ── */}
         <div className="left-col">
 
           {/* LIVE GAME */}
@@ -185,7 +239,6 @@ export default function Player() {
                   <span className="live-dot" />
                   Partie en cours · {QUEUE_NAMES[live_game.gameQueueConfigId] || 'Ranked'} · {formatDuration(live_game.gameLength || 0)}
                 </div>
-                {/* ✅ Navigation via live_game.id (ID PostgreSQL) */}
                 <button
                   className="live-btn"
                   style={{ background: `linear-gradient(135deg, ${accentColor}, ${accentColor}bb)` }}
@@ -276,7 +329,7 @@ export default function Player() {
           )}
         </div>
 
-        {/* ─── SIDEBAR ─── */}
+        {/* ── SIDEBAR ── */}
         <div className="sidebar">
           {jinxit_profile ? (
             <div className="sidebar-card">
@@ -290,7 +343,10 @@ export default function Player() {
               {jinxit_profile.equipped_title && (
                 <div className="jinxit-title-badge">✦ {jinxit_profile.equipped_title}</div>
               )}
-              <div className="jinxit-coins"><span className="coin-dot" />{jinxit_profile.coins?.toLocaleString()} coins</div>
+              <div className="jinxit-coins">
+                <span className="coin-dot" />
+                {jinxit_profile.coins?.toLocaleString()} coins
+              </div>
               <div className="jinxit-stats-grid">
                 <div className="jstat"><div className="jstat-val" style={{ color: '#22c55e' }}>—%</div><div className="jstat-lbl">Win rate</div></div>
                 <div className="jstat"><div className="jstat-val" style={{ color: '#00e5ff' }}>—</div><div className="jstat-lbl">Paris gagnés</div></div>
@@ -306,6 +362,7 @@ export default function Player() {
             </div>
           )}
         </div>
+
       </div>
     </div>
   )

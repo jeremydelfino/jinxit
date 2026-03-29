@@ -107,5 +107,15 @@
 .no-jinxit-btn { margin-top:12px; width:100%; background:transparent; border:1px solid #00e5ff25; color:#00e5ff; border-radius:8px; padding:9px; font-size:12px; font-family:'Inter',sans-serif; cursor:pointer; transition:all 0.2s; }
 .no-jinxit-btn:hover { background:#00e5ff10; }
 
+@keyframes fav-pop { 0%{transform:scale(1)} 40%{transform:scale(1.25)} 70%{transform:scale(0.9)} 100%{transform:scale(1)} }
+
+.fav-btn { display:inline-flex; align-items:center; gap:6px; padding:6px 14px; border-radius:8px; border:1px solid #ffffff15; background:#ffffff06; color:#6b7280; font-family:'Inter',sans-serif; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s; flex-shrink:0; }
+.fav-btn:hover { border-color:#d946a840; background:#d946a810; color:#d946a8; }
+.fav-btn--active { border-color:#d946a860; background:#d946a815; color:#d946a8; }
+.fav-btn--active svg { animation:fav-pop 0.35s ease; }
+.fav-btn--active:hover { background:#d946a808; border-color:#d946a830; color:#d946a880; }
+.fav-btn--loading { opacity:0.5; cursor:not-allowed; pointer-events:none; }
+.fav-btn-label { line-height:1; }
+
 @media (max-width:1024px) { .player-layout { grid-template-columns:1fr; } .sidebar { order:-1; } }
 @media (max-width:768px) { .pro-float-card { padding:0 20px; } .player-layout { padding:16px 20px 40px; } .champ-grid { grid-template-columns:repeat(3,1fr); } }
