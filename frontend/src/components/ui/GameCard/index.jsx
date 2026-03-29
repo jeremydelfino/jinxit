@@ -1,10 +1,12 @@
 import './GameCard.css'
+import api from '../../../api/client'
 
 const CHAMP_VERSION = '14.24.1'
 
 function getChampIcon(championName) {
   if (!championName || championName === '???') return null
-  return `https://ddragon.leagueoflegends.com/cdn/${CHAMP_VERSION}/img/champion/${championName}.png`
+  const ddUrl = `https://ddragon.leagueoflegends.com/cdn/${CHAMP_VERSION}/img/champion/${championName}.png`
+  return `http://localhost:8000/players/proxy/icon?url=${encodeURIComponent(ddUrl)}`
 }
 
 export default function GameCard({ game, onBet }) {

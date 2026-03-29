@@ -83,7 +83,7 @@ async def link_riot_init(
     puuid = account["puuid"]
     existing = db.query(User).filter(User.riot_puuid == puuid, User.id != current_user.id).first()
     if existing:
-        raise HTTPException(400, "Ce compte Riot est déjà lié à un autre compte Jinxit")
+        raise HTTPException(400, "Ce compte Riot est déjà lié à un autre compte JunglGgap")
     icon_id = random.randint(1, 28)
     current_user.riot_puuid = puuid
     current_user.riot_verification_icon = icon_id

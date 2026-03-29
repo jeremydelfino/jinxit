@@ -7,7 +7,7 @@ load_dotenv()
 
 cloudinary.config(url=os.getenv("CLOUDINARY_URL"), secure=True)
 
-async def upload_image(file_bytes: bytes, folder: str = "jinxit", public_id: str = None) -> str:
+async def upload_image(file_bytes: bytes, folder: str = "junglegap", public_id: str = None) -> str:
     options = { "folder": folder, "overwrite": True }
     if public_id:
         options["public_id"] = public_id

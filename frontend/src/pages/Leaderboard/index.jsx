@@ -54,7 +54,7 @@ export default function Leaderboard() {
 
       {/* ── HERO ── */}
       <div className="lb-hero">
-        <div className="lb-eyebrow">Classement global · Jinxit</div>
+        <div className="lb-eyebrow">Classement global · junglegap</div>
         <h1 className="lb-title">
           Les meilleurs<br />
           <span className="lb-accent">parieurs</span>

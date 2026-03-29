@@ -31,7 +31,7 @@ export default function Login() {
       <div className="auth-glow auth-glow-2" />
 
       <div className="auth-card">
-        <div className="auth-logo" onClick={() => navigate('/')}>JINXIT</div>
+        <div className="auth-logo" onClick={() => navigate('/')}>junglegap</div>
 
         <h1 className="auth-title">Connexion</h1>
         <p className="auth-sub">Content de te revoir.</p>

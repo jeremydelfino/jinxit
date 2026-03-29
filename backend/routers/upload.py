@@ -35,7 +35,7 @@ async def upload_avatar(
         raise HTTPException(400, "Fichier trop lourd (5MB max)")
 
     contents = await file.read()
-    url = await upload_image(contents, folder="jinxit/avatars", public_id=f"avatar_{user.id}")
+    url = await upload_image(contents, folder="junglegap/avatars", public_id=f"avatar_{user.id}")
 
     user.avatar_url = url
     db.commit()
@@ -61,7 +61,7 @@ async def upload_pro_photo(
         raise HTTPException(400, "Format non supporté")
 
     contents = await file.read()
-    url = await upload_image(contents, folder="jinxit/pros", public_id=f"pro_{player_id}")
+    url = await upload_image(contents, folder="junglegap/pros", public_id=f"pro_{player_id}")
 
     pro.photo_url = url
     db.commit()

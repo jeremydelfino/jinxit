@@ -103,7 +103,7 @@ export default function Register() {
       <div className="auth-glow auth-glow-2" />
 
       <div className="auth-card" style={{ maxWidth: step === 2 ? 420 : 400 }}>
-        <div className="auth-logo" onClick={() => navigate('/')}>JINXIT</div>
+        <div className="auth-logo" onClick={() => navigate('/')}>junglegap</div>
         <Stepper current={step} />
 
         {/* ── STEP 0 ── */}

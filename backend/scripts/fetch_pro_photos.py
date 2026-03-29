@@ -13,7 +13,7 @@ from services.cloudinary_service import upload_image
 LIQUIPEDIA_BASE = "https://liquipedia.net/leagueoflegends"
 
 HEADERS = {
-    "User-Agent": "JinxIt/1.0 (educational project; contact: ton@email.com)",
+    "User-Agent": "junglegap/1.0 (educational project; contact: ton@email.com)",
     "Accept-Language": "en-US,en;q=0.9",
 }
 
@@ -81,7 +81,7 @@ async def update_pro_photos():
                 try:
                     url = await upload_image(
                         photo_bytes,
-                        folder="jinxit/pros",
+                        folder="junglegap/pros",
                         public_id=f"pro_{pro.id}_{pro.name.lower()}"
                     )
                     pro.photo_url = url

@@ -135,6 +135,11 @@ export default function Navbar() {
           Live
           {isActive('/') && <span className="nav-link-indicator" />}
         </button>
+        <button className={`nav-link ${isActive('/betonpros') ? 'active' : ''}`} onClick={() => navigate('/betonpros')}>
+          <span className="nav-link-icon">🎖️</span>
+          Ligues Pros
+          {isActive('/betonpros') && <span className="nav-link-indicator" />}
+        </button>
         <button className={`nav-link ${isActive('/bets') ? 'active' : ''}`} onClick={() => navigate('/bets')}>
           <span className="nav-link-icon">🎯</span>
           Mes Paris

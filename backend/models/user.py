@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import TIMESTAMP
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
 
@@ -21,3 +22,10 @@ class User(Base):
     favorite_team_logo      = Column(String, nullable=True)
     favorite_team_color     = Column(String(20), nullable=True)
     created_at              = Column(TIMESTAMP, server_default=func.now())
+
+    riot_accounts = relationship(
+        "RiotAccount",
+        foreign_keys="RiotAccount.user_id",
+        cascade="all, delete-orphan",
+        order_by="RiotAccount.is_primary.desc(), RiotAccount.created_at.asc()",
+    )

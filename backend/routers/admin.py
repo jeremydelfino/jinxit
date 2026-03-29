@@ -159,7 +159,7 @@ async def create_card(
     contents = await file.read()
     # Nom de fichier propre pour Cloudinary
     safe_name = name.lower().replace(" ", "_").replace("—", "-")
-    image_url = await upload_image(contents, folder="jinxit/cards", public_id=f"card_{safe_name}_{rarity}")
+    image_url = await upload_image(contents, folder="junglegap/cards", public_id=f"card_{safe_name}_{rarity}")
 
     card = Card(
         name=name,

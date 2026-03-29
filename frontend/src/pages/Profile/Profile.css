@@ -1,160 +1,207 @@
-/* Profile.css */
+/* frontend/src/pages/Profile/Profile.css */
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap');
 
-@keyframes fade-up { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
-@keyframes shimmer  { 0%{transform:translateX(-100%)} 100%{transform:translateX(200%)} }
-@keyframes blink    { 0%,100%{opacity:1} 50%{opacity:0.3} }
-@keyframes spin     { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+/* ─── ANIMATIONS ─── */
+@keyframes fade-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes glow-pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.8; } }
 
-/* ── BASE ── */
-.profile-page { min-height:100vh; background:#1a1919; }
+/* ─── BASE ─── */
+.profile-page { min-height: 100vh; background: #171717; padding-bottom: 80px; }
 
-/* ── LOADING — identique Player.css ── */
-.player-loading      { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:60vh; gap:16px; }
-.player-spinner      { width:36px; height:36px; border:3px solid #ffffff10; border-top-color:#00e5ff; border-radius:50%; animation:spin 0.8s linear infinite; }
-.player-loading-text { font-size:13px; color:#4b5563; font-family:'Inter',sans-serif; }
+/* ─── LOADING ─── */
+.profile-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; gap: 16px; }
+.profile-spinner { width: 34px; height: 34px; border: 3px solid #ffffff10; border-top-color: #65BD62; border-radius: 50%; animation: spin 0.8s linear infinite; }
+.profile-loading-text { font-size: 13px; color: #4b5563; font-family: 'Inter', sans-serif; }
 
-/* ── BANNER — identique Player.css ── */
-.player-banner           { height:200px; position:relative; overflow:hidden; }
-.player-banner-bg        { position:absolute; inset:0; }
-.player-banner-team-logo { position:absolute; left:50%; top:50%; transform:translate(-50%,-20%); height:400px; width:auto; object-fit:contain; z-index:1; opacity:0.35; }
-.player-banner-overlay   { position:absolute; bottom:0; left:0; right:0; height:120px; background:linear-gradient(to top,#1a1919,transparent); z-index:2; }
+/* ─── BANNER ─── */
+.profile-banner { height: 200px; position: relative; overflow: hidden; }
+.profile-banner-bg { position: absolute; inset: 0; }
+.profile-banner-team-logo { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -20%); height: 380px; width: auto; object-fit: contain; z-index: 1; opacity: 0.25; filter: blur(1px); }
+.profile-banner-overlay { position: absolute; bottom: 0; left: 0; right: 0; height: 130px; background: linear-gradient(to top, #171717, transparent); z-index: 2; }
 
-/* ── HEADER FLOTTANT — identique Player.css ── */
-.pro-float-card    { position:relative; z-index:3; display:flex; align-items:flex-end; gap:24px; padding:0 40px; margin-top:-80px; }
-.pro-photo-card    { position:relative; flex-shrink:0; width:140px; height:190px; border-radius:14px; overflow:hidden; background:#242424; border:2px solid #ffffff10; box-shadow:0 8px 32px #00000060; }
-.pro-photo-card img { width:100%; height:100%; object-fit:cover; object-position:top; display:block; }
-.pro-photo-initials { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-family:'Outfit',sans-serif; font-size:52px; font-weight:800; color:#00e5ff; }
-.pro-photo-accent  { position:absolute; bottom:0; left:0; right:0; height:4px; }
-.pro-card-info     { padding-bottom:12px; display:flex; flex-direction:column; gap:8px; }
-.pro-card-name     { font-family:'Outfit',sans-serif; font-size:28px; font-weight:800; color:#e8eaf0; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-.pro-card-badge    { display:inline-flex; align-items:center; gap:6px; padding:4px 12px; border-radius:6px; font-size:12px; font-weight:700; letter-spacing:0.3px; }
-.pro-card-badges   { display:flex; gap:8px; flex-wrap:wrap; }
-.meta-badge        { border-radius:6px; padding:4px 10px; font-size:12px; font-weight:600; font-family:'Inter',sans-serif; border:1px solid; }
+/* ─── HERO ─── */
+.profile-hero { position: relative; z-index: 3; display: flex; align-items: flex-end; gap: 28px; padding: 0 48px; margin-top: -88px; animation: fade-up 0.5s ease both; }
 
-/* Bouton upload avatar */
-.avatar-upload-btn { position:absolute; bottom:6px; right:6px; width:28px; height:28px; border-radius:8px; background:#1a1919cc; border:1px solid #ffffff20; color:#e8eaf0; font-size:13px; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:4; transition:all 0.2s; }
-.avatar-upload-btn:hover { background:#242424; border-color:#00e5ff40; color:#00e5ff; }
+/* Avatar */
+.profile-avatar-wrap { flex-shrink: 0; }
+.profile-avatar { position: relative; width: 148px; height: 195px; border-radius: 16px; overflow: hidden; background: #242424; border: 2px solid #ffffff0d; box-shadow: 0 12px 40px #00000070; }
+.profile-avatar img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+.profile-avatar-initials { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-family: 'Outfit', sans-serif; font-size: 54px; font-weight: 800; color: #65BD62; }
+.profile-avatar-accent { position: absolute; bottom: 0; left: 0; right: 0; height: 4px; }
+.profile-avatar-upload-btn { position: absolute; bottom: 8px; right: 8px; width: 28px; height: 28px; border-radius: 8px; background: #171717cc; border: 1px solid #ffffff20; color: #e8eaf0; font-size: 13px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 4; transition: all 0.2s; }
+.profile-avatar-upload-btn:hover { background: #242424; border-color: #65BD6240; color: #65BD62; }
 
-/* Boutons actions sous le header */
-.profile-actions-row  { display:flex; gap:8px; flex-wrap:wrap; margin-top:4px; }
-.btn-edit-profile     { padding:7px 14px; border-radius:8px; background:transparent; border:1px solid #ffffff15; color:#9ca3af; font-size:12px; font-weight:600; font-family:'Inter',sans-serif; cursor:pointer; transition:all 0.2s; white-space:nowrap; }
-.btn-edit-profile:hover { background:#ffffff08; color:#e8eaf0; border-color:#ffffff25; }
+/* Infos hero */
+.profile-hero-info { padding-bottom: 14px; display: flex; flex-direction: column; gap: 10px; }
+.profile-hero-name { font-family: 'Outfit', sans-serif; font-size: 30px; font-weight: 900; color: #e8eaf0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.profile-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.3px; border: 1px solid; font-family: 'Inter', sans-serif; }
+.profile-hero-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+.profile-meta-pill { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; font-family: 'Inter', sans-serif; border: 1px solid; }
+.profile-meta-pill.gold { color: #e2b147; background: #e2b14712; border-color: #e2b14728; }
+.profile-meta-pill.muted { color: #6b7280; background: #ffffff07; border-color: #ffffff10; }
+.profile-hero-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
-/* live-btn réutilisé depuis Player.css */
-.live-btn { position:relative; background:linear-gradient(135deg,#00e5ff,#00b8cc); color:#1a1919; border:none; border-radius:8px; padding:9px 20px; font-size:13px; font-weight:700; font-family:'Inter',sans-serif; cursor:pointer; overflow:hidden; transition:all 0.2s; }
-.live-btn::after { content:''; position:absolute; top:0; left:-100%; width:60%; height:100%; background:linear-gradient(90deg,transparent,#ffffff50,transparent); animation:shimmer 2s ease infinite; }
-.live-btn:hover  { transform:scale(1.04); box-shadow:0 4px 16px #00e5ff50; }
+/* ─── BOUTONS ─── */
+.profile-btn-primary { position: relative; background: linear-gradient(135deg, #65BD62, #3a9437); color: #0f1a0f; border: none; border-radius: 9px; padding: 9px 20px; font-size: 13px; font-weight: 700; font-family: 'Inter', sans-serif; cursor: pointer; overflow: hidden; transition: all 0.2s; }
+.profile-btn-primary::after { content: ''; position: absolute; top: 0; left: -100%; width: 60%; height: 100%; background: linear-gradient(90deg, transparent, #ffffff40, transparent); animation: shimmer 2s ease infinite; }
+.profile-btn-primary:hover { transform: scale(1.04); box-shadow: 0 4px 18px #65BD6240; }
+.profile-btn-secondary { background: transparent; border: 1px solid #ffffff15; color: #9ca3af; border-radius: 9px; padding: 8px 16px; font-size: 12px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+.profile-btn-secondary:hover { background: #ffffff08; color: #e8eaf0; border-color: #ffffff25; }
+.profile-btn-player-page { position: relative; width: 100%; background: linear-gradient(135deg, #65BD6212, #F2E2C910); border: 1px solid #65BD6230; color: #65BD62; border-radius: 9px; padding: 10px 16px; font-size: 12px; font-weight: 700; font-family: 'Inter', sans-serif; cursor: pointer; transition: all 0.2s; overflow: hidden; margin-top: auto; text-align: center; }
+.profile-btn-player-page::after { content: ''; position: absolute; top: 0; left: -100%; width: 60%; height: 100%; background: linear-gradient(90deg, transparent, #65BD6218, transparent); animation: shimmer 2.5s ease infinite; }
+.profile-btn-player-page:hover { background: linear-gradient(135deg, #65BD6220, #F2E2C918); box-shadow: 0 0 16px #65BD6220; border-color: #65BD6250; }
 
-/* ══ BENTO GRID ══ */
-.bento-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 12px;
-  padding: 24px 40px 60px;
-  animation: fade-up 0.5s ease 0.1s both;
+/* ─── GRID ─── */
+.profile-grid { display: grid; grid-template-columns: 340px 1fr; gap: 16px; padding: 28px 48px 0; animation: fade-up 0.5s ease 0.1s both; }
+.profile-col-left { display: flex; flex-direction: column; gap: 14px; }
+.profile-col-right { display: flex; flex-direction: column; gap: 14px; }
+
+/* ─── CARD ─── */
+.profile-card { background: #1f1f1f; border: 1px solid #ffffff09; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; transition: border-color 0.2s; }
+.profile-card:hover { border-color: #ffffff13; }
+.profile-card-label { font-size: 10px; color: #4b5563; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px; font-family: 'Inter', sans-serif; display: flex; align-items: center; gap: 8px; }
+.profile-card-label-count { color: #65BD62; font-size: 11px; letter-spacing: 0; font-weight: 700; }
+
+/* ─── STATS ─── */
+.profile-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.profile-stat { background: #171717; border-radius: 10px; padding: 12px 14px; }
+.profile-stat-val { font-family: 'Outfit', sans-serif; font-size: 22px; font-weight: 800; }
+.profile-stat-val.green { color: #65BD62; }
+.profile-stat-val.red { color: #ef4444; }
+.profile-stat-val.accent { color: #65BD62; }
+.profile-stat-val.gold { color: #e2b147; }
+.profile-stat-lbl { font-size: 10px; color: #6b7280; margin-top: 3px; font-family: 'Inter', sans-serif; }
+
+/* ─── RIOT ─── */
+.profile-riot-row { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.profile-riot-icon { width: 52px; height: 52px; border-radius: 10px; border: 2px solid #65BD6225; object-fit: cover; flex-shrink: 0; }
+.profile-riot-name { font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 700; color: #e8eaf0; }
+.profile-riot-tag { font-size: 13px; color: #6b7280; font-weight: 400; margin-left: 2px; }
+.profile-riot-sub { font-size: 11px; color: #6b7280; font-family: 'Inter', sans-serif; margin-top: 2px; }
+
+/* ─── EMPTY STATE ─── */
+.profile-empty-state { display: flex; flex-direction: column; align-items: center; padding: 16px 0; text-align: center; }
+.profile-empty-text { font-size: 12px; color: #4b5563; font-family: 'Inter', sans-serif; }
+
+/* ─── BADGES ─── */
+.profile-badges-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.profile-badge { background: #171717; border: 1px solid #ffffff08; border-radius: 10px; padding: 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; transition: all 0.2s; cursor: default; }
+.profile-badge.unlocked:hover { border-color: #65BD6225; transform: translateY(-2px); }
+.profile-badge.locked { opacity: 0.3; filter: grayscale(0.6); }
+.profile-badge-icon { font-size: 26px; line-height: 1; }
+.profile-badge-lbl { font-size: 10px; color: #9ca3af; font-family: 'Inter', sans-serif; font-weight: 500; }
+
+/* ─── BETS SCROLL ─── */
+.profile-card-bets { flex: 1; min-height: 0; }
+.profile-bets-scroll { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; max-height: 520px; padding-right: 4px; }
+.profile-bets-scroll::-webkit-scrollbar { width: 3px; }
+.profile-bets-scroll::-webkit-scrollbar-track { background: transparent; }
+.profile-bets-scroll::-webkit-scrollbar-thumb { background: #ffffff12; border-radius: 2px; }
+.profile-bets-empty { font-size: 12px; color: #4b5563; font-family: 'Inter', sans-serif; text-align: center; padding: 32px 0; }
+
+/* ─── BET ROW ─── */
+.profile-bet-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; background: #171717; border: 1px solid #ffffff07; transition: border-color 0.2s; flex-shrink: 0; }
+.profile-bet-row:hover { border-color: #ffffff12; }
+.profile-bet-row.won { border-left: 2px solid #65BD6240; }
+.profile-bet-row.lost { border-left: 2px solid #ef444440; }
+.profile-bet-row.pending { border-left: 2px solid #e2b14740; }
+.profile-bet-champ { width: 36px; height: 36px; border-radius: 8px; overflow: hidden; background: #242424; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border: 1px solid #ffffff08; }
+.profile-bet-champ img { width: 100%; height: 100%; object-fit: cover; }
+.profile-bet-champ-fallback { font-size: 16px; }
+.profile-bet-info { flex: 1; min-width: 0; }
+.profile-bet-main { font-size: 12px; font-weight: 600; color: #e8eaf0; font-family: 'Inter', sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 5px; }
+.profile-bet-type { color: #e8eaf0; }
+.profile-bet-sep { color: #374151; }
+.profile-bet-side { color: #9ca3af; }
+.profile-bet-champ-name { color: #65BD62; font-size: 11px; }
+.profile-bet-sub { font-size: 10px; color: #4b5563; margin-top: 3px; font-family: 'Inter', sans-serif; display: flex; align-items: center; gap: 6px; }
+.profile-bet-team { color: #6b7280; }
+.profile-bet-time { color: #374151; }
+.profile-bet-result { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.profile-bet-amount { font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 800; }
+.profile-bet-amount.green { color: #65BD62; }
+.profile-bet-amount.red { color: #ef4444; }
+.profile-bet-amount.muted { color: #6b7280; }
+.profile-bet-status-badge { font-size: 10px; font-weight: 700; font-family: 'Inter', sans-serif; padding: 2px 8px; border-radius: 20px; letter-spacing: 0.3px; }
+.profile-bet-status-badge.won { color: #65BD62; background: #65BD6215; }
+.profile-bet-status-badge.lost { color: #ef4444; background: #ef444415; }
+.profile-bet-status-badge.pending { color: #e2b147; background: #e2b14715; }
+
+/* ─── TCG GRID ─── */
+.profile-tcg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; padding-top: 4px; }
+
+/* ─── TEAM PICKER ─── */
+.profile-picker-overlay { position: fixed; inset: 0; background: #00000085; backdrop-filter: blur(6px); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.profile-picker-modal { background: #1c1c1c; border: 1px solid #ffffff10; border-radius: 18px; width: 100%; max-width: 580px; max-height: 80vh; overflow-y: auto; box-shadow: 0 24px 64px #00000099; animation: fade-up 0.2s ease both; }
+.profile-picker-modal::-webkit-scrollbar { width: 4px; }
+.profile-picker-modal::-webkit-scrollbar-thumb { background: #ffffff12; border-radius: 2px; }
+.profile-picker-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px 14px; border-bottom: 1px solid #ffffff08; position: sticky; top: 0; background: #1c1c1c; z-index: 1; }
+.profile-picker-title { font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 800; color: #e8eaf0; }
+.profile-picker-close { width: 28px; height: 28px; border-radius: 7px; background: #2a2a2a; border: 1px solid #ffffff10; color: #6b7280; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; transition: color 0.2s; }
+.profile-picker-close:hover { color: #e8eaf0; }
+.profile-picker-section { padding: 14px 22px; }
+.profile-picker-teams { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
+.profile-picker-team { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 12px 8px; background: #242424; border: 1px solid #ffffff0a; border-radius: 10px; cursor: pointer; transition: all 0.2s; position: relative; }
+.profile-picker-team:hover { background: #2e2e2e; border-color: var(--tc, #65BD62)35; transform: translateY(-2px); }
+.profile-picker-team.selected { border-color: var(--tc, #65BD62); background: color-mix(in srgb, var(--tc, #65BD62) 12%, transparent); box-shadow: 0 0 14px color-mix(in srgb, var(--tc, #65BD62) 20%, transparent); }
+.profile-picker-logo { width: 40px; height: 40px; object-fit: contain; display: block; }
+.profile-picker-team-name { font-size: 10px; font-weight: 600; color: #9ca3af; font-family: 'Inter', sans-serif; text-align: center; line-height: 1.3; }
+.profile-picker-team.selected .profile-picker-team-name { color: var(--tc, #65BD62); }
+.profile-picker-check { position: absolute; top: 5px; right: 7px; font-size: 10px; font-weight: 700; color: var(--tc, #65BD62); }
+
+/* ─── RIOT ACCOUNTS LIST ─── */
+.riot-accounts-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
+.riot-account-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; background: #171717; border: 1px solid #ffffff08; border-radius: 10px; transition: border-color 0.2s; }
+.riot-account-row:hover { border-color: #ffffff12; }
+.riot-account-row.primary { border-color: #65BD6225; background: #65BD6208; }
+.riot-account-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+.riot-account-icon-placeholder { width: 40px; height: 40px; border-radius: 8px; background: #242424; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #4b5563; flex-shrink: 0; }
+.riot-primary-badge { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 20px; font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: #65BD62; background: #65BD6218; border: 1px solid #65BD6230; font-family: 'Inter', sans-serif; }
+.riot-account-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.riot-account-btn { width: 28px; height: 28px; border-radius: 7px; background: #242424; border: 1px solid #ffffff0a; color: #6b7280; font-size: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; }
+.riot-account-btn:hover { background: #2e2e2e; color: #e8eaf0; border-color: #ffffff18; }
+.riot-account-btn.danger:hover { background: #ef444415; color: #ef4444; border-color: #ef444430; }
+
+/* ─── ADD RIOT STEPPER ─── */
+.add-riot-stepper { margin-top: 12px; padding: 14px; background: #171717; border: 1px solid #ffffff0a; border-radius: 12px; display: flex; flex-direction: column; gap: 10px; }
+.add-riot-regions { display: flex; flex-wrap: wrap; gap: 6px; }
+.add-riot-region-btn { padding: 4px 10px; border-radius: 6px; background: #242424; border: 1px solid #ffffff0a; color: #6b7280; font-size: 11px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; transition: all 0.2s; }
+.add-riot-region-btn.active { background: #65BD6215; border-color: #65BD6235; color: #65BD62; }
+.add-riot-region-btn:hover { color: #e8eaf0; border-color: #ffffff18; }
+.add-riot-input-row { display: flex; gap: 8px; }
+.add-riot-input { flex: 1; background: #242424; border: 1px solid #ffffff10; border-radius: 8px; padding: 8px 12px; font-size: 13px; color: #e8eaf0; font-family: 'Inter', sans-serif; outline: none; transition: border-color 0.2s; }
+.add-riot-input::placeholder { color: #4b5563; }
+.add-riot-input:focus { border-color: #65BD6235; }
+.add-riot-error { font-size: 11px; color: #ef4444; font-family: 'Inter', sans-serif; }
+.add-riot-cancel { background: none; border: none; color: #4b5563; font-size: 11px; font-family: 'Inter', sans-serif; cursor: pointer; padding: 0; text-align: left; transition: color 0.2s; }
+.add-riot-cancel:hover { color: #9ca3af; }
+.add-riot-verify-row { display: flex; align-items: center; gap: 12px; }
+.add-riot-verify-icon { width: 52px; height: 52px; border-radius: 10px; border: 2px solid #65BD6225; object-fit: cover; flex-shrink: 0; }
+.add-riot-verify-info { flex: 1; min-width: 0; }
+.add-riot-verify-name { font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 700; color: #e8eaf0; }
+.add-riot-verify-instruction { font-size: 11px; color: #6b7280; margin-top: 4px; font-family: 'Inter', sans-serif; line-height: 1.5; }
+.add-riot-verify-actions { display: flex; align-items: center; justify-content: space-between; }
+.profile-spinner-sm { display: inline-block; width: 14px; height: 14px; border: 2px solid #ffffff30; border-top-color: #0f1a0f; border-radius: 50%; animation: spin 0.7s linear infinite; }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 1100px) {
+  .profile-grid { grid-template-columns: 300px 1fr; padding: 24px 28px 0; }
+  .profile-hero { padding: 0 28px; }
 }
-
-.bento-card { background:#242424; border:1px solid #ffffff08; border-radius:14px; padding:18px; display:flex; flex-direction:column; transition:border-color 0.2s; }
-.bento-card:hover { border-color:#ffffff12; }
-
-.bento-coins   { grid-column:1;   grid-row:1; }
-.bento-riot    { grid-column:2;   grid-row:1; }
-.bento-history { grid-column:3;   grid-row:1 / 3; }
-.bento-badges  { grid-column:1/3; grid-row:2; }
-.bento-cards   { grid-column:1/4; grid-row:3; }
-
-/* ── Classes Player.css sidebar réutilisées ── */
-.sidebar-section-label { font-size:10px; color:#4b5563; letter-spacing:2px; text-transform:uppercase; margin-bottom:14px; font-family:'Inter',sans-serif; }
-.jinxit-stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-.jstat     { background:#1a1919; border-radius:8px; padding:10px 12px; }
-.jstat-val { font-family:'Outfit',sans-serif; font-size:20px; font-weight:800; }
-.jstat-lbl { font-size:10px; color:#6b7280; margin-top:2px; font-family:'Inter',sans-serif; }
-.no-jinxit-text { font-size:12px; color:#6b7280; font-family:'Inter',sans-serif; line-height:1.6; }
-.no-jinxit-btn  { margin-top:12px; width:100%; background:transparent; border:1px solid #00e5ff25; color:#00e5ff; border-radius:8px; padding:9px; font-size:12px; font-family:'Inter',sans-serif; cursor:pointer; transition:all 0.2s; text-align:center; }
-.no-jinxit-btn:hover { background:#00e5ff10; }
-.coin-dot { display:inline-block; width:8px; height:8px; background:#c89b3c; border-radius:50%; flex-shrink:0; }
-
-/* ── Coins ── */
-.coins-main { display:flex; align-items:center; gap:10px; margin-bottom:4px; }
-.coins-val  { font-family:'Outfit',sans-serif; font-size:32px; font-weight:800; color:#c89b3c; }
-
-/* ── Riot ── */
-.riot-linked  { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
-.riot-lol-icon { width:52px; height:52px; border-radius:10px; border:2px solid #00e5ff30; object-fit:cover; flex-shrink:0; }
-.riot-name    { font-family:'Outfit',sans-serif; font-size:15px; font-weight:700; color:#e8eaf0; }
-.riot-tag     { font-size:13px; color:#6b7280; font-weight:400; margin-left:2px; }
-.riot-sub     { font-size:11px; color:#6b7280; font-family:'Inter',sans-serif; margin-top:2px; }
-
-/* Bouton voir page joueur */
-.btn-player-page { position:relative; width:100%; background:linear-gradient(135deg,#d946a818,#a855f718); border:1px solid #d946a840; color:#d946a8; border-radius:8px; padding:9px 16px; font-size:12px; font-weight:700; font-family:'Inter',sans-serif; cursor:pointer; transition:all 0.2s; overflow:hidden; margin-top:auto; text-align:center; }
-.btn-player-page::after { content:''; position:absolute; top:0; left:-100%; width:60%; height:100%; background:linear-gradient(90deg,transparent,#d946a825,transparent); animation:shimmer 2.5s ease infinite; }
-.btn-player-page:hover  { background:linear-gradient(135deg,#d946a828,#a855f728); box-shadow:0 0 16px #d946a825; border-color:#d946a860; }
-
-/* ── Historique ── */
-.history-scroll { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:4px; min-height:0; }
-.history-scroll::-webkit-scrollbar { width:3px; }
-.history-scroll::-webkit-scrollbar-thumb { background:#ffffff12; border-radius:2px; }
-.history-empty  { font-size:12px; color:#4b5563; font-family:'Inter',sans-serif; text-align:center; padding:24px 0; }
-.history-row    { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:8px; background:#1a1919; flex-shrink:0; }
-.history-row:hover { background:#1e1e1e; }
-.history-icon   { font-size:16px; flex-shrink:0; }
-.history-info   { flex:1; min-width:0; }
-.history-desc   { font-size:12px; font-weight:600; color:#e8eaf0; font-family:'Inter',sans-serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.history-time   { font-size:10px; color:#4b5563; margin-top:1px; font-family:'Inter',sans-serif; }
-.history-amount { display:flex; align-items:center; font-family:'Outfit',sans-serif; font-size:14px; font-weight:700; flex-shrink:0; white-space:nowrap; }
-
-/* ── Badges ── */
-.badges-grid  { display:grid; grid-template-columns:repeat(6,1fr); gap:10px; }
-.badge-chip   { background:#1a1919; border:1px solid #ffffff08; border-radius:10px; padding:12px 8px; display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center; transition:border-color 0.2s,transform 0.2s; cursor:default; }
-.badge-chip:not(.locked):hover { border-color:#c89b3c30; transform:translateY(-2px); }
-.badge-chip.locked { opacity:0.35; filter:grayscale(0.5); }
-.badge-icon-big { font-size:28px; line-height:1; }
-.badge-lbl      { font-size:10px; color:#9ca3af; font-family:'Inter',sans-serif; font-weight:500; }
-
-/* ── Cartes — grid TCG ── */
-.bento-cards { grid-column:1/4; grid-row:3; }
-.tcg-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 16px;
-  padding-top: 4px;
+@media (max-width: 860px) {
+  .profile-grid { grid-template-columns: 1fr; padding: 20px 20px 0; }
+  .profile-col-left { order: 2; }
+  .profile-col-right { order: 1; }
+  .profile-hero { padding: 0 20px; gap: 18px; }
+  .profile-avatar { width: 110px; height: 148px; }
+  .profile-hero-name { font-size: 24px; }
+  .profile-badges-grid { grid-template-columns: repeat(6, 1fr); }
+  .profile-bets-scroll { max-height: 360px; }
 }
-.cards-empty-state { display:flex; flex-direction:column; align-items:center; padding:24px 0; }
-
-/* ══ POPUP ══ */
-.picker-overlay { position:fixed; inset:0; background:#00000080; backdrop-filter:blur(6px); z-index:200; display:flex; align-items:center; justify-content:center; padding:20px; }
-.picker-modal   { background:#1e1e1e; border:1px solid #ffffff10; border-radius:16px; width:100%; max-width:580px; max-height:80vh; overflow-y:auto; box-shadow:0 24px 64px #00000090; animation:fade-up 0.2s ease both; }
-.picker-modal::-webkit-scrollbar { width:4px; }
-.picker-modal::-webkit-scrollbar-thumb { background:#ffffff15; border-radius:2px; }
-.picker-header  { display:flex; align-items:center; justify-content:space-between; padding:18px 20px 14px; border-bottom:1px solid #ffffff08; position:sticky; top:0; background:#1e1e1e; z-index:1; }
-.picker-title   { font-family:'Outfit',sans-serif; font-size:16px; font-weight:800; color:#e8eaf0; }
-.picker-close   { width:28px; height:28px; border-radius:7px; background:#2a2a2a; border:1px solid #ffffff10; color:#6b7280; cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; transition:color 0.2s; }
-.picker-close:hover { color:#e8eaf0; }
-.picker-section { padding:14px 20px; }
-.picker-teams-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:8px; }
-.picker-team    { display:flex; flex-direction:column; align-items:center; gap:7px; padding:12px 8px; background:#242424; border:1px solid #ffffff0a; border-radius:10px; cursor:pointer; transition:all 0.2s; position:relative; }
-.picker-team:hover { background:#2e2e2e; border-color:var(--tc,#00e5ff)35; transform:translateY(-2px); }
-.picker-team.selected { border-color:var(--tc,#00e5ff); background:var(--tc,#00e5ff)12; box-shadow:0 0 12px var(--tc,#00e5ff)20; }
-.picker-logo    { width:40px; height:40px; object-fit:contain; display:block; }
-.picker-logo-fallback { width:40px; height:40px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-family:'Outfit',sans-serif; font-size:13px; font-weight:800; }
-.picker-team-name { font-size:10px; font-weight:600; color:#9ca3af; font-family:'Inter',sans-serif; text-align:center; line-height:1.3; }
-.picker-team.selected .picker-team-name { color:var(--tc,#00e5ff); }
-.picker-check   { position:absolute; top:5px; right:7px; font-size:10px; font-weight:700; color:var(--tc,#00e5ff); }
-
-/* ── Responsive ── */
-@media (max-width:1100px) {
-  .bento-grid  { grid-template-columns:1fr 1fr; }
-  .bento-coins   { grid-column:1; grid-row:1; }
-  .bento-riot    { grid-column:2; grid-row:1; }
-  .bento-history { grid-column:1/3; grid-row:2; max-height:220px; }
-  .bento-badges  { grid-column:1/3; grid-row:3; }
-  .bento-cards   { grid-column:1/3; grid-row:4; }
-  .badges-grid   { grid-template-columns:repeat(3,1fr); }
-}
-@media (max-width:768px) {
-  .pro-float-card { padding:0 20px; }
-  .bento-grid { grid-template-columns:1fr; padding:16px 20px 40px; }
-  .bento-coins,.bento-riot,.bento-history,.bento-badges,.bento-cards { grid-column:1; grid-row:auto; }
-  .badges-grid { grid-template-columns:repeat(2,1fr); }
+@media (max-width: 520px) {
+  .profile-hero { flex-direction: column; align-items: flex-start; margin-top: -60px; }
+  .profile-avatar { width: 90px; height: 120px; }
+  .profile-badges-grid { grid-template-columns: repeat(3, 1fr); }
 }
