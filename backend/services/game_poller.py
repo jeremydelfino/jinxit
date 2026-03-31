@@ -73,32 +73,98 @@ def extract_summoner_name(p: dict) -> str:
         ""
     )
 
-def build_participant(p: dict) -> dict:
+SMITE = 11
+
+# Ordre canonique des rôles en Spectator V5 (position dans la liste par teamId)
+# Riot retourne les participants dans cet ordre : TOP, JGL, MID, BOT, SUP
+ROLE_BY_INDEX = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
+
+def detect_role_live(p: dict, team_index: int) -> str:
+    """
+    Détecte le rôle d'un joueur depuis les données Spectator V5.
+    Priorité :
+      1. Smite → JUNGLE (100% fiable)
+      2. DB ProPlayer (si PUUID connu) → géré en amont dans build_teams
+      3. Index dans la liste (ordre Riot : TOP/JGL/MID/BOT/SUP)
+    """
+    spells = {p.get("spell1Id"), p.get("spell2Id")}
+    if SMITE in spells:
+        return "JUNGLE"
+    # Fallback : position dans la liste de l'équipe (0→TOP, 1→JGL, 2→MID, 3→BOT, 4→SUP)
+    if 0 <= team_index < len(ROLE_BY_INDEX):
+        return ROLE_BY_INDEX[team_index]
+    return ""
+
+def build_participant(p: dict, team_index: int, pro_role: str | None = None) -> dict:
+    """
+    Construit un participant pour le stockage en DB depuis les données Spectator V5.
+    pro_role : rôle issu de la DB ProPlayer si le joueur est un pro connu.
+    """
     champ_id   = p.get("championId")
     champ_name = p.get("championName") or (get_champ_name(champ_id) if champ_id else "")
+    spells     = {p.get("spell1Id"), p.get("spell2Id")}
+
+    # Priorité rôle : pro_role (DB) > Smite > index
+    if pro_role:
+        role = pro_role
+    elif SMITE in spells:
+        role = "JUNGLE"
+    else:
+        role = ROLE_BY_INDEX[team_index] if 0 <= team_index < len(ROLE_BY_INDEX) else ""
+
     return {
         "puuid":        p.get("puuid") or "",
         "summonerName": extract_summoner_name(p),
         "championId":   champ_id,
         "championName": champ_name,
         "teamId":       p.get("teamId"),
-        "role":         p.get("individualPosition", "") or p.get("position", "") or "",
+        "role":         role,
         "spell1Id":     p.get("spell1Id"),
         "spell2Id":     p.get("spell2Id"),
     }
 
-def patch_team(team: list, puuid_to_participant: dict) -> list:
+def build_teams(participants: list, pro_puuid_to_role: dict) -> tuple[list, list]:
+    """
+    Construit blue_team et red_team depuis les participants Spectator V5.
+    pro_puuid_to_role : { puuid: role } pour les pros connus en DB.
+    Conserve l'index dans la liste de chaque équipe pour le fallback de rôle.
+    """
+    blue_raw = [p for p in participants if p.get("teamId") == 100]
+    red_raw  = [p for p in participants if p.get("teamId") == 200]
+
+    blue_team = [
+        build_participant(p, i, pro_puuid_to_role.get(p.get("puuid")))
+        for i, p in enumerate(blue_raw)
+    ]
+    red_team = [
+        build_participant(p, i, pro_puuid_to_role.get(p.get("puuid")))
+        for i, p in enumerate(red_raw)
+    ]
+    return blue_team, red_team
+
+def patch_team(team: list, puuid_to_participant: dict, pro_puuid_to_role: dict) -> list:
     result = []
-    for p in team:
+    for i, p in enumerate(team):
         live_p     = puuid_to_participant.get(p.get("puuid"), {})
         champ_id   = p.get("championId") or live_p.get("championId")
         champ_name = p.get("championName") or live_p.get("championName") or (get_champ_name(champ_id) if champ_id else "")
+        spells     = {live_p.get("spell1Id"), live_p.get("spell2Id")}
+
+        puuid = p.get("puuid", "")
+        if pro_puuid_to_role.get(puuid):
+            role = pro_puuid_to_role[puuid]
+        elif SMITE in spells:
+            role = "JUNGLE"
+        else:
+            role = p.get("role") or (ROLE_BY_INDEX[i] if 0 <= i < len(ROLE_BY_INDEX) else "")
+
         result.append({
             **p,
             "summonerName": extract_summoner_name(live_p) or p.get("summonerName", ""),
             "championName": champ_name,
             "spell1Id":     live_p.get("spell1Id") or p.get("spell1Id"),
             "spell2Id":     live_p.get("spell2Id") or p.get("spell2Id"),
+            "role":         role,
         })
     return result
 
@@ -186,17 +252,12 @@ async def resolve_bets_for_game(game_id: int, riot_game_id: str, region: str):
             logger.warning(f"resolve_bets: game {game_id} introuvable")
             return
 
-        all_players = (game.blue_team or []) + (game.red_team or [])
-        ref_puuid   = next((p.get("puuid") for p in all_players if p.get("puuid")), None)
-        if not ref_puuid:
-            logger.warning(f"resolve_bets: pas de puuid pour game {game_id}")
-            return
-
         # ── 5 tentatives espacées de 60s pour attendre MATCH-V5 ──
+        # Note: puuid non utilisé dans get_match_result (appel direct par match ID)
         result = None
         for attempt in range(5):
             logger.info(f"   🔍 Tentative {attempt + 1}/5 MATCH-V5 pour {riot_game_id}...")
-            result = await get_match_result(ref_puuid, riot_game_id, region)
+            result = await get_match_result("", riot_game_id, region)
             if result:
                 break
             if attempt < 4:
@@ -246,6 +307,8 @@ async def resolve_bets_for_game(game_id: int, riot_game_id: str, region: str):
             f"baron={first_baron_side} | duration={duration_min:.1f}min | "
             f"top_dmg={top_damage_champ} | jg_gap={jungle_gap_side}"
         )
+
+        all_players = (game.blue_team or []) + (game.red_team or [])
 
         # Index championName (lowercase) → puuid
         puuid_by_champ: dict[str, str] = {
@@ -323,7 +386,6 @@ async def resolve_bets_for_game(game_id: int, riot_game_id: str, region: str):
 
             elif slug == "jungle_gap":
                 if bet.bet_value == "none":
-                    # Pari "pas de gap" — gagné si aucun gap détecté
                     won = (jungle_gap_side is None)
                 elif jungle_gap_side is None:
                     refund_reason = "Aucun Jungle Gap détecté dans cette partie"
@@ -400,6 +462,13 @@ async def poll_pro_games():
 
         logger.info(f"🎮 Poll: vérification de {len(pros)} pros...")
 
+        # Map puuid → role pour tous les pros connus en DB
+        pro_puuid_to_role: dict[str, str] = {
+            p.riot_puuid: p.role
+            for p in pros
+            if p.riot_puuid and p.role
+        }
+
         puuids_in_game     = set()
         processed_game_ids = set()
 
@@ -428,8 +497,7 @@ async def poll_pro_games():
 
                 if not existing:
                     try:
-                        blue_team = [build_participant(p) for p in participants if p.get("teamId") == 100]
-                        red_team  = [build_participant(p) for p in participants if p.get("teamId") == 200]
+                        blue_team, red_team = build_teams(participants, pro_puuid_to_role)
 
                         if len(blue_team) < 3 or len(red_team) < 3:
                             logger.warning(f"   ⚠️ Game {riot_game_id} ignorée — teams invalides (blue={len(blue_team)}, red={len(red_team)})")
@@ -444,11 +512,11 @@ async def poll_pro_games():
                             red_team           = red_team,
                             duration_seconds   = live.get("gameLength", 0),
                             status             = "live",
+                            region             = pro.region,
                         )
                         db.add(new_game)
                         db.flush()
 
-                        # Calcul des côtes en background — non bloquant
                         asyncio.create_task(
                             _compute_and_save_odds(new_game.id, blue_team, red_team, pro.region)
                         )
@@ -471,11 +539,11 @@ async def poll_pro_games():
                     red_needs  = needs_patch(existing.red_team  or [])
 
                     if blue_needs or red_needs:
-                        existing.blue_team = patch_team(existing.blue_team or [], puuid_to_participant)
-                        existing.red_team  = patch_team(existing.red_team  or [], puuid_to_participant)
+                        existing.blue_team = patch_team(existing.blue_team or [], puuid_to_participant, pro_puuid_to_role)
+                        existing.red_team  = patch_team(existing.red_team  or [], puuid_to_participant, pro_puuid_to_role)
                         flag_modified(existing, "blue_team")
                         flag_modified(existing, "red_team")
-                        logger.info(f"   🔄 Champions + noms patchés pour game {riot_game_id}")
+                        logger.info(f"   🔄 Champions + noms + rôles patchés pour game {riot_game_id}")
 
                 await asyncio.sleep(1.5)
 
@@ -509,7 +577,7 @@ async def poll_pro_games():
                     ProPlayer.riot_puuid.in_(all_puuids)
                 ).first()
                 region = pro_match.region if pro_match else (
-                    "KR" if "KR" in (game.riot_game_id or "") else "EUW"
+                    "KR" if str(game.riot_game_id).startswith("8") else "EUW"
                 )
                 games_to_resolve.append((game.id, game.riot_game_id, region))
 

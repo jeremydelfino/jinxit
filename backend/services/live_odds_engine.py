@@ -241,23 +241,29 @@ async def compute_jungle_gap_odds(
 ) -> dict:
     """
     Côtes Jungle Gap basées sur les stats historiques réelles des junglers.
-    Détecte les junglers via Smite (spell 11), fallback position JUNGLE.
+    Détecte les junglers via :
+      1. role == "JUNGLE" (stocké en DB depuis Spectator V5 — source principale)
+      2. Smite (spell 11) — fallback si role absent
+      3. Index 1 dans l'équipe — dernier recours
     """
     from services.riot_stats import get_player_stats
 
     def find_jungler(team: list[dict]) -> dict | None:
-        # Priorité : Smite détecté
+        # Priorité 1 : rôle stocké en DB (détecté via Smite ou ProPlayer en live)
+        for p in team:
+            if (p.get("role") or "").upper() == "JUNGLE":
+                return p
+        # Priorité 2 : Smite dans les spells (cas où role n'est pas encore patché)
         for p in team:
             if 11 in {p.get("spell1Id"), p.get("spell2Id")}:
                 return p
-        # Fallback : role JUNGLE
-        for p in team:
-            if (p.get("role") or "").upper() in ("JUNGLE", "JUNGLER"):
-                return p
+        # Dernier recours : index 1 (ordre Riot : TOP=0, JGL=1, MID=2, BOT=3, SUP=4)
         return team[1] if len(team) > 1 else None
 
     jg_blue = find_jungler(blue_team)
     jg_red  = find_jungler(red_team)
+
+    logger.info(f"   🎯 Odds JG — blue: {jg_blue.get('championName') if jg_blue else '?'} | red: {jg_red.get('championName') if jg_red else '?'}")
 
     # Fetch stats en parallèle
     async def get_score(player: dict | None) -> float:
@@ -268,7 +274,6 @@ async def compute_jungle_gap_odds(
                 get_player_stats(player["puuid"], region, player.get("championName")),
                 timeout=8.0,
             )
-            # Score = mix winrate global + winrate champion + forme
             return (
                 stats["winrate_global"] * 0.40 +
                 stats["winrate_champ"]  * 0.35 +
@@ -293,7 +298,6 @@ async def compute_jungle_gap_odds(
         "blue": odds_blue,
         "red":  odds_red,
     }
-
 
 async def compute_live_odds(
     blue_team: list[dict],

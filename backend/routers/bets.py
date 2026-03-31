@@ -79,8 +79,8 @@ def place_bet(
         raise HTTPException(400, "Cette partie est terminée")
 
     # ── Validation bet_value selon le type ────────────────────
-    all_players  = (game.blue_team or []) + (game.red_team or [])
-    champ_names  = {p.get("championName", "") for p in all_players if p.get("championName")}
+    all_players = (game.blue_team or []) + (game.red_team or [])
+    champ_names = {p.get("championName", "") for p in all_players if p.get("championName")}
 
     if body.bet_type_slug in SIDE_BET_TYPES:
         if body.bet_value not in {"blue", "red"}:
@@ -91,21 +91,24 @@ def place_bet(
             raise HTTPException(400, f"Champion '{body.bet_value}' introuvable dans cette partie")
 
     elif body.bet_type_slug in DURATION_BET_TYPES:
-        # Pas de validation sur bet_value — on stocke le slug lui-même comme confirmation
-        # bet_value = "confirmed" ou n'importe quoi de non-vide
         if not body.bet_value:
             raise HTTPException(400, "bet_value manquant")
 
-    # ── Un seul pari par type par game ───────────────────────
-        existing = db.query(Bet).filter(
-            Bet.user_id       == current_user.id,
-            Bet.live_game_id  == body.live_game_id,
-            Bet.bet_type_slug == body.bet_type_slug,
-            Bet.bet_value     == body.bet_value,
-            Bet.status        == "pending",
-        ).first()
-        if existing:
-            raise HTTPException(400, f"Tu as déjà ce pari en cours sur cette partie")
+    # ── Un seul pari par type par game ────────────────────────
+    # On vérifie uniquement sur bet_type_slug (pas bet_value) pour les types
+    # où une seule option est possible (durée, jungle_gap, etc.)
+    # Pour les types "side" (who_wins, first_tower...) on bloque aussi
+    # le même type même avec une valeur différente — un joueur ne peut pas
+    # parier blue ET red sur who_wins dans la même game.
+    existing = db.query(Bet).filter(
+        Bet.user_id       == current_user.id,
+        Bet.live_game_id  == body.live_game_id,
+        Bet.bet_type_slug == body.bet_type_slug,
+        Bet.status        == "pending",
+    ).first()
+    if existing:
+        raise HTTPException(400, f"Tu as déjà un pari '{bet_type.label}' en cours sur cette partie")
+
     # ── Solde ─────────────────────────────────────────────────
     if current_user.coins < body.amount:
         raise HTTPException(400, "Coins insuffisants")
