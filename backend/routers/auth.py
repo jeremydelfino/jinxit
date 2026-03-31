@@ -119,7 +119,7 @@ async def register_complete(body: RegisterCompleteSchema, db: Session = Depends(
         raise HTTPException(
             400,
             f"Mauvaise icône détectée (actuelle : {current_icon}, attendue : {body.expected_icon_id}). "
-            "Change bien ton icône dans LoL et réessaie."
+            "Si jamais votre ID d'icone ne change pas, attendez quelques minutes et relancer l'étape d'inscription."
         )
 
     user = User(
