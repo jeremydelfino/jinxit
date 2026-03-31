@@ -16,7 +16,7 @@ import models.esports_player
 import models.esports_team_rating                               
 from routers import auth, players, bets, coins, profile, upload, admin, games, favorites, leaderboard
 from routers import esports                    
-
+from routers.settings import router as settings_router
 from services.esports_sync import sync_all_teams
 
 Base.metadata.create_all(bind=engine)
@@ -65,7 +65,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+app.include_router(settings_router)
 app.include_router(auth.router)
 app.include_router(players.router)
 app.include_router(bets.router)

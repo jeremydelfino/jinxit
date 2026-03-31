@@ -16,3 +16,4 @@ class LiveGame(Base):
     status              = Column(String(20), default="live")
     fetched_at          = Column(TIMESTAMP, server_default=func.now())
     odds_data           = Column(JSONB, nullable=True)
+    region              = Column(String(10), nullable=True)

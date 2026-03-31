@@ -35,7 +35,6 @@ ROUTING = {
     "OCE": "sea",
 }
 
-# Préfixe plateforme pour construire le match ID complet (ex: KR_8149145538)
 PLATFORM_PREFIX = {
     "EUW": "EUW1",
     "EUN": "EUN1",
@@ -83,25 +82,69 @@ async def get_rank_by_puuid(puuid: str, region: str) -> list:
 
 
 async def get_live_game_by_puuid(puuid: str, region: str) -> dict | None:
-    try:
-        platform = REGIONS.get(region.upper(), "euw1")
-        url = f"https://{platform}.api.riotgames.com/lol/spectator/v5/active-games/by-summoner/{puuid}"
-        async with httpx.AsyncClient(timeout=10) as client:
-            res = await client.get(url, headers=get_headers())
+    """
+    Récupère la partie live d'un joueur via Spectator V5.
+    Retry automatique sur les erreurs 5xx (502, 503, 504) — sporadiques côté Riot.
+    """
+    platform = REGIONS.get(region.upper(), "euw1")
+    url = f"https://{platform}.api.riotgames.com/lol/spectator/v5/active-games/by-summoner/{puuid}"
+
+    MAX_RETRIES  = 3
+    RETRY_DELAYS = [1, 3, 7]   # secondes entre chaque tentative
+
+    for attempt in range(MAX_RETRIES):
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                res = await client.get(url, headers=get_headers())
+
+            # Pas en jeu
             if res.status_code == 404:
                 return None
+
+            # Erreurs clé API — inutile de retenter
             if res.status_code in (401, 403):
-                logger.error(f"get_live_game_by_puuid {res.status_code} — vérifie la clé API dans .env")
+                logger.error(f"get_live_game_by_puuid {res.status_code} — vérifie la clé API Riot dans .env")
                 return None
+
+            # Rate limit — attendre le header Retry-After
             if res.status_code == 429:
                 retry_after = int(res.headers.get("Retry-After", 5))
+                logger.warning(f"get_live_game_by_puuid 429 — rate limited, attente {retry_after}s")
                 await asyncio.sleep(retry_after)
                 return None
+
+            # Erreurs serveur Riot (502, 503, 504) — on retente
+            if res.status_code in (500, 502, 503, 504):
+                delay = RETRY_DELAYS[attempt]
+                logger.warning(
+                    f"get_live_game_by_puuid {res.status_code} (tentative {attempt + 1}/{MAX_RETRIES}) "
+                    f"— retry dans {delay}s"
+                )
+                if attempt < MAX_RETRIES - 1:
+                    await asyncio.sleep(delay)
+                    continue
+                # Dernière tentative échouée → on abandonne silencieusement
+                return None
+
             res.raise_for_status()
             return res.json()
-    except Exception as e:
-        logger.error(f"get_live_game_by_puuid error: {e}")
-        return None
+
+        except httpx.TimeoutException:
+            delay = RETRY_DELAYS[attempt]
+            logger.warning(
+                f"get_live_game_by_puuid timeout (tentative {attempt + 1}/{MAX_RETRIES}) "
+                f"— retry dans {delay}s"
+            )
+            if attempt < MAX_RETRIES - 1:
+                await asyncio.sleep(delay)
+                continue
+            return None
+
+        except Exception as e:
+            logger.error(f"get_live_game_by_puuid erreur inattendue: {e}")
+            return None
+
+    return None
 
 
 async def get_match_history(puuid: str, region: str, count: int = 10) -> list:
@@ -143,148 +186,62 @@ async def get_match_history(puuid: str, region: str, count: int = 10) -> list:
 async def get_match_result(puuid: str, riot_game_id: str, region: str) -> dict | None:
     """
     Résout une game terminée via MATCH-V5.
-    - Appel direct par match ID (plus besoin du puuid pour chercher)
-    - Détection jungler via individualPosition (seul champ fiable post-game,
-      les spell IDs sont None dans MATCH-V5)
+    Retry sur 5xx avec backoff — MATCH-V5 peut mettre du temps à indexer la partie.
     """
-    try:
-        routing = ROUTING.get(region.upper(), "europe")
-        prefix  = PLATFORM_PREFIX.get(region.upper(), "EUW1")
+    routing  = ROUTING.get(region.upper(), "europe")
+    platform = PLATFORM_PREFIX.get(region.upper(), "EUW1")
+    match_id = f"{platform}_{riot_game_id}"
+    url = f"https://{routing}.api.riotgames.com/lol/match/v5/matches/{match_id}"
 
-        # ── Appel direct par match ID ─────────────────────────
-        # riot_game_id en DB est le numéro seul (ex: 8149145538)
-        # On construit le match ID complet (ex: KR_8149145538)
-        match_id = f"{prefix}_{riot_game_id}"
-        url = f"https://{routing}.api.riotgames.com/lol/match/v5/matches/{match_id}"
+    MAX_RETRIES  = 5
+    RETRY_DELAYS = [5, 15, 30, 60, 120]
 
-        async with httpx.AsyncClient(timeout=10) as client:
-            res = await client.get(url, headers=get_headers())
-            if res.status_code != 200:
-                logger.warning(f"get_match_result: {match_id} → HTTP {res.status_code}")
+    for attempt in range(MAX_RETRIES):
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                res = await client.get(url, headers=get_headers())
+
+            if res.status_code == 200:
+                return res.json()
+
+            if res.status_code == 404:
+                delay = RETRY_DELAYS[attempt]
+                logger.info(
+                    f"get_match_result 404 pour {match_id} (tentative {attempt + 1}/{MAX_RETRIES}) "
+                    f"— pas encore indexé, retry dans {delay}s"
+                )
+                if attempt < MAX_RETRIES - 1:
+                    await asyncio.sleep(delay)
+                    continue
                 return None
-            match_data = res.json()
 
-        info         = match_data["info"]
-        participants = info["participants"]
-        teams        = info["teams"]
-        duration_s   = info.get("gameDuration", 0)
+            if res.status_code == 429:
+                retry_after = int(res.headers.get("Retry-After", 10))
+                logger.warning(f"get_match_result 429 — attente {retry_after}s")
+                await asyncio.sleep(retry_after)
+                continue
 
-        # ── Équipe gagnante ───────────────────────────────────
-        winner_team = None
-        for team in teams:
-            if team.get("win"):
-                winner_team = "blue" if team["teamId"] == 100 else "red"
-                break
+            if res.status_code in (500, 502, 503, 504):
+                delay = RETRY_DELAYS[attempt]
+                logger.warning(f"get_match_result {res.status_code} — retry dans {delay}s")
+                if attempt < MAX_RETRIES - 1:
+                    await asyncio.sleep(delay)
+                    continue
+                return None
 
-        # ── First Blood ───────────────────────────────────────
-        first_blood_champ = None
-        for p in participants:
-            if p.get("firstBloodKill"):
-                first_blood_champ = p.get("championName")
-                break
+            logger.error(f"get_match_result statut inattendu {res.status_code} pour {match_id}")
+            return None
 
-        # ── Objectifs par équipe ──────────────────────────────
-        objectives = {}
-        for team in teams:
-            side = "blue" if team["teamId"] == 100 else "red"
-            obj  = team.get("objectives", {})
-            objectives[side] = {
-                "first_tower":  obj.get("tower",  {}).get("first", False),
-                "first_dragon": obj.get("dragon", {}).get("first", False),
-                "first_baron":  obj.get("baron",  {}).get("first", False),
-            }
+        except httpx.TimeoutException:
+            delay = RETRY_DELAYS[attempt]
+            logger.warning(f"get_match_result timeout (tentative {attempt + 1}) — retry dans {delay}s")
+            if attempt < MAX_RETRIES - 1:
+                await asyncio.sleep(delay)
+                continue
+            return None
 
-        first_tower_side  = next((s for s, o in objectives.items() if o["first_tower"]),  None)
-        first_dragon_side = next((s for s, o in objectives.items() if o["first_dragon"]), None)
-        first_baron_side  = next((s for s, o in objectives.items() if o["first_baron"]),  None)
+        except Exception as e:
+            logger.error(f"get_match_result erreur: {e}")
+            return None
 
-        duration_min = duration_s / 60
-
-        # ── Stats par joueur ──────────────────────────────────
-        # individualPosition est fiable post-game : TOP / JUNGLE / MIDDLE / BOTTOM / UTILITY
-        # Les spell IDs sont None dans MATCH-V5 — on ne s'en sert pas ici
-        player_stats: dict[str, dict] = {}
-        for p in participants:
-            k = p.get("kills",   0)
-            d = p.get("deaths",  0)
-            a = p.get("assists", 0)
-            kda = (k + a) / max(d, 1)
-
-            position  = (p.get("individualPosition") or p.get("teamPosition") or "").upper()
-            is_jungle = position == "JUNGLE"
-
-            player_stats[p["puuid"]] = {
-                "championName": p.get("championName", ""),
-                "side":         "blue" if p.get("teamId") == 100 else "red",
-                "kills":        k,
-                "deaths":       d,
-                "assists":      a,
-                "kda":          round(kda, 2),
-                "damage":       p.get("totalDamageDealtToChampions", 0),
-                "is_jungle":    is_jungle,
-                "objectives":   p.get("neutralMinionsKilled", 0),
-                "position":     position,
-            }
-
-        # ── KDA positif { puuid: bool } ───────────────────────
-        kda_positive = {
-            puuid: (s["kills"] + s["assists"]) > s["deaths"]
-            for puuid, s in player_stats.items()
-        }
-
-        # ── Top dégâts global ─────────────────────────────────
-        top_damage_champ = max(
-            player_stats.values(),
-            key=lambda s: s["damage"],
-            default=None,
-        )
-        top_damage_champ_name = top_damage_champ["championName"] if top_damage_champ else None
-
-        # ── Jungle Gap ────────────────────────────────────────
-        junglers = {puuid: s for puuid, s in player_stats.items() if s["is_jungle"]}
-        jungle_gap_side = None
-
-        logger.info(f"   🌿 Junglers détectés: {len(junglers)} — {[(s['championName'], s['side']) for s in junglers.values()]}")
-
-        if len(junglers) == 2:
-            j_list = list(junglers.values())
-            j_blue = next((s for s in j_list if s["side"] == "blue"), None)
-            j_red  = next((s for s in j_list if s["side"] == "red"),  None)
-
-            if j_blue and j_red:
-                def jg_score(j: dict) -> float:
-                    return j["kda"] * 0.35 + (j["damage"] / 1000) * 0.35 + j["objectives"] * 0.30
-
-                score_blue = jg_score(j_blue)
-                score_red  = jg_score(j_red)
-                total      = score_blue + score_red
-
-                if total > 0:
-                    ratio = max(score_blue, score_red) / total
-                    logger.info(f"   🌿 JG scores — blue: {score_blue:.2f} ({j_blue['championName']}) | red: {score_red:.2f} ({j_red['championName']}) | ratio: {ratio:.2f}")
-                    if ratio > 0.55:
-                        jungle_gap_side = "blue" if score_blue > score_red else "red"
-                        logger.info(f"   🌿 Jungle Gap détecté → {jungle_gap_side}")
-                    else:
-                        logger.info(f"   🌿 Pas de Jungle Gap (ratio trop faible)")
-
-        elif len(junglers) != 2:
-            logger.warning(f"   ⚠️ Jungle Gap impossible — {len(junglers)} jungler(s) détecté(s) au lieu de 2")
-
-        return {
-            "winner_team":          winner_team,
-            "first_blood":          first_blood_champ,
-            "first_tower_side":     first_tower_side,
-            "first_dragon_side":    first_dragon_side,
-            "first_baron_side":     first_baron_side,
-            "duration_s":           duration_s,
-            "duration_min":         round(duration_min, 2),
-            "kda_positive":         kda_positive,
-            "player_stats":         player_stats,
-            "top_damage_champ":     top_damage_champ_name,
-            "jungle_gap_side":      jungle_gap_side,
-        }
-
-    except Exception as e:
-        logger.error(f"get_match_result error: {e}")
-        return None
+    return None

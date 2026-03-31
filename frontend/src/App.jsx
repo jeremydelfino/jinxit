@@ -10,11 +10,15 @@ import Register from './pages/Register/index.jsx'
 import Leaderboard from './pages/Leaderboard/index.jsx'
 import BetOnPros from './pages/BetOnPros/index.jsx'
 
+import Footer from './components/layout/Footer/index.jsx'
+// App.jsx — dans la Route WithNavbar
+import Settings from './pages/Settings/index.jsx'
 function WithNavbar() {
   return (
     <div style={{ minHeight: '100vh', background: '#111215' }}>
       <Navbar />
       <Outlet />
+      <Footer />
     </div>
   )
 }
@@ -34,7 +38,8 @@ export default function App() {
           <Route path="/profile/:userId" element={<Profile />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/leaderboard"                    element={<Leaderboard />} />
-          <Route path="/betonpros" element={<BetOnPros />} />     
+          <Route path="/betonpros" element={<BetOnPros />} />    
+          <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>
     </BrowserRouter>
