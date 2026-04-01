@@ -32,7 +32,7 @@
 ══════════════════════════════════════ */
 .player-banner            { height:240px; position:relative; overflow:hidden; }
 .player-banner-bg         { position:absolute; inset:0; }
-.player-banner-team-logo  { position:absolute; left:50%; top:50%; transform:translate(-50%,-20%); height:420px; width:auto; object-fit:contain; z-index:1; opacity:0.18; filter:blur(0.5px); }
+.player-banner-team-logo  { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); height:550px; width:auto; object-fit:contain; z-index:1; opacity:0.18; filter:blur(0.5px); }
 .player-banner-overlay    { position:absolute; bottom:0; left:0; right:0; height:160px; background:linear-gradient(to top,#171717,transparent); z-index:2; }
 
 /* ══════════════════════════════════════

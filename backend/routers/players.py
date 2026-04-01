@@ -262,7 +262,6 @@ async def get_player(
                 ),
             })
 
-    # ── Pro enrichi : EsportsPlayer + ProPlayer + EsportsTeam ─
     esports_player = db.query(EsportsPlayer).filter(
         EsportsPlayer.riot_puuid == player.riot_puuid
     ).first()
@@ -272,9 +271,9 @@ async def get_player(
     ).first()
 
     team_obj = None
-    if esports_player and esports_player.team_id:
+    if esports_player and esports_player.team_code:
         team_obj = db.query(EsportsTeam).filter(
-            EsportsTeam.id == esports_player.team_id
+            EsportsTeam.code == esports_player.team_code
         ).first()
     elif pro_player and pro_player.team:
         team_obj = db.query(EsportsTeam).filter(
