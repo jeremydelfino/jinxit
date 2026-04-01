@@ -425,7 +425,7 @@ export default function BetOnPros() {
 
   const filtered = matches
     .filter(m => {
-      const leagueOk = leagueFilter === 'all' || m.league?.slug?.toLowerCase() === leagueFilter
+      const leagueOk = leagueFilter === 'all' || m.league_slug === leagueFilter
       const stateOk  =
         stateFilter === 'all'      ||
         (stateFilter === 'upcoming' && m.state === 'unstarted') ||
@@ -444,7 +444,7 @@ export default function BetOnPros() {
       // Completed : plus récent en premier
       return new Date(b.start_time || 0) - new Date(a.start_time || 0)
     })
-    .slice(0, 40)
+    .slice(0, 100)
 
   // Grouper par ligue avec ordre prioritaire
   const grouped = {}

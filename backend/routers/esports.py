@@ -285,7 +285,7 @@ async def get_esports_schedule(
         raise HTTPException(400, "Aucune ligue valide")
 
     try:
-        data = await lolesports.get_schedule(league_ids)
+        data = await lolesports.get_schedule(list(COVERED_LEAGUES.values()))
     except Exception as e:
         raise HTTPException(502, f"Erreur API LoL Esports : {e}")
 
@@ -418,7 +418,7 @@ def new_date(s: Optional[str]) -> float:
 @router.get("/live")
 async def get_esports_live(db: Session = Depends(get_db)):
     try:
-        data = await lolesports.get_live()
+        data = await lolesports.get_schedule(list(COVERED_LEAGUES.values()))
     except Exception as e:
         raise HTTPException(502, f"Erreur API : {e}")
 
@@ -515,18 +515,45 @@ async def place_esports_bet(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # 1. Récupération du schedule pour vérifier le match
     try:
-        data = await lolesports.get_schedule()
-        events = data.get("data", {}).get("schedule", {}).get("events", [])
+        events = []
+
+        # Fenêtre principale
+        data = await lolesports.get_schedule(list(COVERED_LEAGUES.values()))
+        events.extend(data.get("data", {}).get("schedule", {}).get("events", []))
+
+        # Completed events de chaque ligue (matchs passés + hors fenêtre principale)
+        for slug, lid in COVERED_LEAGUES.items():
+            try:
+                tid = await lolesports.get_current_tournament_id(lid)
+                if tid:
+                    ce   = await lolesports.get_completed_events(tid)
+                    evts = ce.get("data", {}).get("schedule", {}).get("events", [])
+                    events.extend(evts)
+            except Exception:
+                pass
+
+        # Dédupliquer par match_id
+        seen = set()
+        unique_events = []
+        for ev in events:
+            mid = ev.get("match", {}).get("id")
+            if mid and mid not in seen:
+                seen.add(mid)
+                unique_events.append(ev)
+        events = unique_events
+
     except Exception as e:
         print(f"Erreur API LoL Esports: {e}")
         raise HTTPException(502, "Impossible de vérifier le match auprès de Riot")
 
-    # 2. Recherche de l'événement correspondant
+    all_ids = [ev.get("match", {}).get("id") for ev in events if ev.get("match")]
+    print(f"[bets/place] match_id cherché: {body.match_id}")
+    print(f"[bets/place] {len(all_ids)} events dispo: {all_ids[:10]}")
+
     match_event = next(
         (ev for ev in events
-         if ev.get("type") == "match" and ev.get("match", {}).get("id") == body.match_id),
+         if ev.get("match", {}).get("id") == body.match_id),
         None,
     )
 
