@@ -9,6 +9,7 @@ import Login from './pages/Login/index.jsx'
 import Register from './pages/Register/index.jsx'
 import Leaderboard from './pages/Leaderboard/index.jsx'
 import BetOnPros from './pages/BetOnPros/index.jsx'
+import AdminRatings from './pages/AdminRatings/index.jsx'
 
 import Footer from './components/layout/Footer/index.jsx'
 // App.jsx — dans la Route WithNavbar
@@ -40,6 +41,7 @@ export default function App() {
           <Route path="/leaderboard"                    element={<Leaderboard />} />
           <Route path="/betonpros" element={<BetOnPros />} />    
           <Route path="/settings" element={<Settings />} />
+          <Route path="/admin/ratings" element={<AdminRatings />} />
         </Route>
       </Routes>
     </BrowserRouter>

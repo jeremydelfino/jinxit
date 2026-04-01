@@ -1,7 +1,3 @@
-"""
-deps.py — dépendance partagée pour récupérer l'utilisateur courant
-via le header Authorization: Bearer <token>
-"""
 from fastapi import Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from database import get_db
@@ -25,3 +21,9 @@ def get_current_user(
     if not user:
         raise HTTPException(401, "Utilisateur introuvable")
     return user
+
+
+def get_admin_user(current_user: User = Depends(get_current_user)) -> User:
+    if not current_user.is_admin:
+        raise HTTPException(403, "Accès refusé")
+    return current_user

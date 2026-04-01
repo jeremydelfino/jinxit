@@ -14,11 +14,6 @@ const LEAGUE_META = {
   msi:    { label: 'MSI',    color: '#a855f7' },
 }
 
-// Ordre d'affichage des ligues
-const LEAGUE_ORDER = ['La Ligue Française', 'LCK', 'LCS', 'LPL', 'Worlds', 'MSI']
-// LEC et LCK en premier
-const PRIORITY_LEAGUES = ['League of Legends EMEA Championship', 'La Ligue Française de League of Legends', 'LEC', 'LCK']
-
 const SCORE_OPTS = { 3: ['2-0', '2-1'], 5: ['3-0', '3-1', '3-2'], 1: ['1-0'] }
 
 function timeUntil(dateStr) {
@@ -32,6 +27,11 @@ function timeUntil(dateStr) {
   return `dans ${m}m`
 }
 
+function getLeaguePriorityBySlug(slug) {
+  const order = { lec: 0, lck: 1, lfl: 2, lcs: 3, lpl: 4, msi: 5, worlds: 6 }
+  return order[slug] ?? 99
+}
+
 function formatDate(dateStr) {
   if (!dateStr) return ''
   return new Date(dateStr).toLocaleDateString('fr-FR', {
@@ -43,9 +43,9 @@ function formatDate(dateStr) {
 function getLeaguePriority(leagueName) {
   if (!leagueName) return 99
   const name = leagueName.toLowerCase()
-  if (name.includes('emea') || name.includes('lec')) return 0
-  if (name.includes('lck') || name.includes('korea')) return 1
-  if (name.includes('lfl') || name.includes('française')) return 2
+  if (name === 'lec' || name.includes('emea')) return 0
+  if (name === 'lck' || name.includes('korea')) return 1
+  if (name.includes('française') || name === 'lfl') return 2
   if (name.includes('lcs')) return 3
   if (name.includes('lpl')) return 4
   if (name.includes('msi')) return 5
@@ -405,7 +405,7 @@ export default function BetOnPros() {
   const [matches,      setMatches]      = useState([])
   const [loading,      setLoading]      = useState(true)
   const [leagueFilter, setLeagueFilter] = useState('all')
-  const [stateFilter,  setStateFilter]  = useState('upcoming')
+  const [stateFilter, setStateFilter] = useState('upcoming')
   const [betModal,     setBetModal]     = useState(null)
   const [coins,        setCoins]        = useState(user?.coins || 0)
 
@@ -424,27 +424,34 @@ export default function BetOnPros() {
   }, [user])
 
   const filtered = matches
-    .filter(m => {
-      const leagueOk = leagueFilter === 'all' || m.league_slug === leagueFilter
-      const stateOk  =
-        stateFilter === 'all'      ||
-        (stateFilter === 'upcoming' && m.state === 'unstarted') ||
-        (stateFilter === 'live'     && m.state === 'inProgress') ||
-        (stateFilter === 'done'     && m.state === 'completed')
-      return leagueOk && stateOk
-    })
+  .filter(m => {
+    const leagueOk = leagueFilter === 'all'
+      || m.league_slug === leagueFilter
+      || m.league?.slug?.toLowerCase() === leagueFilter   // ← ajout fallback
+
+    const stateOk =
+      stateFilter === 'all'      ||
+      (stateFilter === 'upcoming' && m.state === 'unstarted') ||
+      (stateFilter === 'live'     && m.state === 'inProgress') ||
+      (stateFilter === 'done'     && m.state === 'completed')
+
+    return leagueOk && stateOk
+  })
     .sort((a, b) => {
-      // Live en premier
-      if (a.state === 'inProgress' && b.state !== 'inProgress') return -1
-      if (b.state === 'inProgress' && a.state !== 'inProgress') return  1
-      // Upcoming : plus proche en premier
-      if (a.state === 'unstarted' && b.state === 'unstarted') {
-        return new Date(a.start_time || 0) - new Date(b.start_time || 0)
-      }
-      // Completed : plus récent en premier
+      // Priorité ligue d'abord
+      const leaguePrioA = getLeaguePriorityBySlug(a.league_slug)
+      const leaguePrioB = getLeaguePriorityBySlug(b.league_slug)
+      if (leaguePrioA !== leaguePrioB) return leaguePrioA - leaguePrioB
+    
+      // Puis state
+      const stateOrder = { inProgress: 0, unstarted: 1, completed: 2 }
+      const stateA = stateOrder[a.state] ?? 3
+      const stateB = stateOrder[b.state] ?? 3
+      if (stateA !== stateB) return stateA - stateB
+    
+      if (a.state === 'unstarted') return new Date(a.start_time || 0) - new Date(b.start_time || 0)
       return new Date(b.start_time || 0) - new Date(a.start_time || 0)
     })
-    .slice(0, 100)
 
   // Grouper par ligue avec ordre prioritaire
   const grouped = {}

@@ -28,6 +28,8 @@ class User(Base):
     email_code             = Column(String(6), nullable=True)
     email_code_expires_at  = Column(TIMESTAMP, nullable=True)
 
+    is_admin = Column(Boolean, default=False, nullable=False)
+
     riot_accounts = relationship(
         "RiotAccount",
         foreign_keys="RiotAccount.user_id",

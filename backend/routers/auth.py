@@ -222,4 +222,5 @@ def login(body: LoginSchema, db: Session = Depends(get_db)):
         "username":       user.username,
         "coins":          user.coins,
         "email_verified": user.email_verified,
+        "is_admin":       user.is_admin,       # ← ajouter
     }

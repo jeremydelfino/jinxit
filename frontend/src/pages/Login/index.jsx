@@ -18,7 +18,7 @@ export default function Login() {
     setLoading(true); setError('')
     try {
       const { data } = await api.post('/auth/login', form)
-      login({ username: data.username, coins: data.coins }, data.token)
+      login({ username: data.username, coins: data.coins, is_admin: data.is_admin }, data.token)
       navigate('/')
     } catch (err) {
       setError(err.response?.data?.detail || 'Identifiants incorrects')

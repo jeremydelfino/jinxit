@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from services.odds_engine import compute_match_odds as _compute_match_odds
 from models.esports_team_rating import EsportsTeamRating
+from deps import get_current_user, get_admin_user
 import math
 
 router = APIRouter(prefix="/esports", tags=["esports"])
@@ -63,15 +64,25 @@ PRIOR_WINRATES = {
 # ─── Normalisation league_id → slug interne ──────────────────
 
 def normalize_league_slug(league: dict) -> str:
-    """Retourne notre slug interne (ex: 'lec') depuis un objet league de l'API."""
     league_id = league.get("id", "")
     if league_id in LEAGUE_ID_TO_SLUG:
         return LEAGUE_ID_TO_SLUG[league_id]
-    # Fallback : nettoyer le slug brut ("lec-versus" → "lec")
+    
     raw = league.get("slug", "").lower()
     for slug in COVERED_LEAGUES:
         if raw.startswith(slug):
             return slug
+    
+    # Fallback sur le name
+    name = league.get("name", "").lower()
+    if "emea" in name or "lec" in name:      return "lec"
+    if "lck" in name or "korea" in name:     return "lck"
+    if "lcs" in name:                        return "lcs"
+    if "lpl" in name:                        return "lpl"
+    if "française" in name or "lfl" in name: return "lfl"
+    if "worlds" in name or "world" in name:  return "worlds"
+    if "msi" in name:                        return "msi"
+    
     return raw
 
 # ─── Winrate bayésien ─────────────────────────────────────────
@@ -312,7 +323,7 @@ async def get_esports_schedule(
         except Exception:
             pass
 
-    seen_ids = {ev.get("match", {}).get("id") for ev in events if ev.get("type") == "match"}
+    seen_ids = {ev.get("match", {}).get("id") for ev in events if ev.get("match")}
     for mid, ev in completed_extra.items():
         if mid not in seen_ids:
             events.append(ev)
@@ -989,7 +1000,10 @@ def cancel_esports_bet(
 
 # ─── GET /admin/ratings ───────────────────────────────────────
 @router.get("/admin/ratings")
-def get_team_ratings(db: Session = Depends(get_db)):
+def get_team_ratings(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_admin_user),              # ← sécurisé
+):
     ratings = db.query(EsportsTeamRating).order_by(EsportsTeamRating.team_code).all()
     # Compléter avec toutes les équipes connues sans rating
     rated_codes = {r.team_code for r in ratings}
@@ -1027,6 +1041,7 @@ def set_team_rating(
     team_code: str,
     body:      SetRatingSchema,
     db:        Session = Depends(get_db),
+    _:         User = Depends(get_admin_user),      # ← sécurisé
 ):
     code   = team_code.upper()
     rating = db.query(EsportsTeamRating).filter(

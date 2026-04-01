@@ -1,8 +1,20 @@
 /* ─── ANIMATIONS ─── */
-@keyframes shimmer  { 0%{transform:translateX(-100%)} 100%{transform:translateX(200%)} }
-@keyframes pop-in   { from{opacity:0;transform:scale(0.75)} to{opacity:1;transform:scale(1)} }
-@keyframes fade-up  { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+@keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(200%)} }
+@keyframes pop-in  { from{opacity:0;transform:scale(0.75)} to{opacity:1;transform:scale(1)} }
+@keyframes fade-up { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+@keyframes glint { 0%,85%{opacity:0;transform:translateX(-100%) rotate(25deg)} 90%{opacity:1} 100%{opacity:0;transform:translateX(300%) rotate(25deg)} }
 
+.game-card::before {
+  content: '';
+  position: absolute;
+  top: -50%; left: 0;
+  width: 40%; height: 200%;
+  background: linear-gradient(90deg, transparent, #ffffff12, transparent);
+  transform: translateX(-100%) rotate(25deg);
+  animation: glint 10s ease-in-out infinite;
+  z-index: 3;
+  pointer-events: none;
+}
 /* ══════════════════════════════════════
    CARD BASE
 ══════════════════════════════════════ */
@@ -13,7 +25,7 @@
   border-radius: 18px;
   cursor: pointer;
   overflow: hidden;
-  height: 230px;
+  height: 260px; /* légèrement plus haute pour respirer */
   transition: border-color 0.3s, box-shadow 0.3s, transform 0.25s;
 }
 .game-card:hover {
@@ -32,14 +44,50 @@
 }
 .game-card:hover .pro-overlay { transform: translateY(-110%); opacity: 0; pointer-events: none; }
 
-.pro-bg            { position: absolute; inset: 0; }
-.pro-team-logo     { position: absolute; width: 340px; height: 340px; object-fit: contain; opacity: 0.15; bottom: -50px; }
-.pro-photo         { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 220px; height: 220px; object-fit: cover; object-position: top; }
-.pro-initials      { position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%); width: 70px; height: 70px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Outfit', sans-serif; font-size: 24px; font-weight: 800; border: 2px solid; }
-.pro-role-badge    { position: absolute; top: 12px; right: 12px; font-size: 9px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; padding: 3px 9px; border-radius: 5px; font-family: 'Inter', sans-serif; border: 1px solid; }
-.pro-info          { position: absolute; bottom: 0; left: 0; right: 0; padding: 12px 16px; background: linear-gradient(to top, #141414f0 60%, transparent); }
-.pro-name          { font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 800; color: #e8eaf0; line-height: 1; }
-.pro-team          { font-size: 12px; font-weight: 600; letter-spacing: 0.6px; margin-top: 4px; }
+.pro-bg { position: absolute; inset: 0; }
+
+.pro-team-logo {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  object-fit: contain;
+  object-position: center;
+  opacity: 0.17;
+}
+
+.pro-photo {
+  position: absolute;
+  bottom: 0;
+  left: 50%; transform: translateX(-50%);
+  width: 280px; height: 280px; /* plus grand */
+  object-fit: cover;
+  object-position: top;
+}
+
+.pro-initials {
+  position: absolute;
+  bottom: 50px; left: 50%; transform: translateX(-50%);
+  width: 70px; height: 70px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Outfit', sans-serif; font-size: 24px; font-weight: 800;
+  border: 2px solid;
+}
+
+.pro-role-badge {
+  position: absolute; top: 12px; right: 12px;
+  font-size: 9px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 5px;
+  font-family: 'Inter', sans-serif; border: 1px solid;
+}
+
+/* Info : gradient en bas, nom bien lisible */
+.pro-info {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 16px 16px 14px;
+  background: linear-gradient(to top, #111111f8 50%, #111111a0 75%, transparent);
+  text-align: center; /* centré sous la photo */
+}
+.pro-name { font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 800; color: #e8eaf0; line-height: 1; }
+.pro-team { font-size: 12px; font-weight: 600; letter-spacing: 0.6px; margin-top: 5px; }
 
 /* ══════════════════════════════════════
    FACE ARRIÈRE (hover — matchup)
@@ -57,14 +105,14 @@
 .gi-bg-accent { position: absolute; inset: 0; opacity: 0.06; }
 
 /* ── Header ── */
-.gi-header  { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; padding: 13px 14px 8px; }
-.gi-pro-mini{ display: flex; align-items: center; gap: 7px; }
-.gi-pro-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
-.gi-pro-name{ font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 800; color: #e8eaf0; }
-.gi-pro-team{ font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; opacity: 0.85; }
-.gi-timer   { font-family: 'Inter', sans-serif; font-size: 10px; color: #4b5563; background: #ffffff08; border: 1px solid #ffffff0a; padding: 3px 9px; border-radius: 5px; }
+.gi-header   { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; padding: 13px 14px 8px; }
+.gi-pro-mini { display: flex; align-items: center; gap: 7px; }
+.gi-pro-dot  { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.gi-pro-name { font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 800; color: #e8eaf0; }
+.gi-pro-team { font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; opacity: 0.85; }
+.gi-timer    { font-family: 'Inter', sans-serif; font-size: 10px; color: #4b5563; background: #ffffff08; border: 1px solid #ffffff0a; padding: 3px 9px; border-radius: 5px; }
 
-/* ── Arena (zone des champions) ── */
+/* ── Arena ── */
 .gi-arena { position: relative; z-index: 2; flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 0; padding: 0 12px; }
 .gi-row   { display: flex; align-items: center; gap: 5px; }
 
@@ -80,14 +128,14 @@
   background: #222; border: 1px solid #ffffff0c;
   display: flex; align-items: center; justify-content: center;
   position: relative;
-  animation: pop-in 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation: pop-in 0.22s cubic-bezier(0.34,1.56,0.64,1) both;
   transition: transform 0.15s, box-shadow 0.15s;
 }
-.gi-champ:hover    { transform: scale(1.2) translateY(-2px); z-index: 10; }
-.gi-champ img      { width: 120%; height: 120%; object-fit: cover; margin: -10%; }
-.gi-champ span     { font-family: 'Inter', sans-serif; font-size: 8px; font-weight: 700; color: #4b5563; }
-.gi-champ-pro      { border-width: 2px !important; }
-.gi-champ-pro::after { content: ''; position: absolute; inset: 0; border-radius: 9px; box-shadow: inset 0 0 0 1px #ffffff20; }
+.gi-champ:hover           { transform: scale(1.2) translateY(-2px); z-index: 10; }
+.gi-champ img             { width: 120%; height: 120%; object-fit: cover; margin: -10%; }
+.gi-champ span            { font-family: 'Inter', sans-serif; font-size: 8px; font-weight: 700; color: #4b5563; }
+.gi-champ-pro             { border-width: 2px !important; }
+.gi-champ-pro::after      { content: ''; position: absolute; inset: 0; border-radius: 9px; box-shadow: inset 0 0 0 1px #ffffff20; }
 
 /* Animation échelonnée */
 .gi-champ:nth-child(1){animation-delay:0.03s} .gi-champ:nth-child(2){animation-delay:0.06s} .gi-champ:nth-child(3){animation-delay:0.09s} .gi-champ:nth-child(4){animation-delay:0.12s} .gi-champ:nth-child(5){animation-delay:0.15s}
@@ -108,5 +156,5 @@
   background: linear-gradient(90deg, transparent, #ffffff50, transparent);
   animation: shimmer 2.4s ease infinite;
 }
-.bet-btn:hover       { transform: scale(1.025); }
-.bet-btn-arrow       { font-size: 14px; }
+.bet-btn:hover    { transform: scale(1.025); }
+.bet-btn-arrow    { font-size: 14px; }
