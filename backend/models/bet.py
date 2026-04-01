@@ -17,4 +17,5 @@ class Bet(Base):
     boost_applied   = Column(Float, default=0)
     status          = Column(String(20), default="pending")
     payout          = Column(Integer, default=0)
+    slip_id         = Column(String(36), nullable=True)
     created_at      = Column(TIMESTAMP, server_default=func.now())

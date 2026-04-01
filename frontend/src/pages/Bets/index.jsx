@@ -11,7 +11,7 @@ const STATUS_CONFIG = {
   pending:   { label: 'En cours',  color: '#f59e0b', bg: '#f59e0b12', icon: '⏳' },
   won:       { label: 'Gagné',     color: '#65BD62', bg: '#65BD6212', icon: '✓'  },
   lost:      { label: 'Perdu',     color: '#ef4444', bg: '#ef444412', icon: '✗'  },
-  cancelled: { label: 'Remboursé', color: '#6b7280', bg: '#6b728012', icon: '↩️'  },
+  cancelled: { label: 'Remboursé', color: '#6b7280', bg: '#6b728012', icon: '↩️' },
 }
 
 const LEAGUE_META = {
@@ -47,10 +47,12 @@ const QUEUE_NAMES = {
   '420': 'Ranked Solo', '440': 'Ranked Flex', '400': 'Normal', '450': 'ARAM',
 }
 
+// ─── Helpers ──────────────────────────────────────────────────
 function timeAgo(dateStr) {
   if (!dateStr) return ''
   const diff = Date.now() - new Date(dateStr).getTime()
-  const h = Math.floor(diff / 3600000), m = Math.floor(diff / 60000)
+  const h = Math.floor(diff / 3600000)
+  const m = Math.floor(diff / 60000)
   if (h > 24) return `il y a ${Math.floor(h / 24)}j`
   if (h > 0)  return `il y a ${h}h`
   if (m > 0)  return `il y a ${m}m`
@@ -67,44 +69,68 @@ function champIcon(name) {
   return `https://ddragon.leagueoflegends.com/cdn/${DDV}/img/champion/${name}.png`
 }
 
-function betValueLabel(betType, betValue) {
+function betValueLabel(betValue) {
   if (!betValue) return '—'
-  if (betValue === 'blue') return '🟦 Blue side'
-  if (betValue === 'red')  return '🟥 Red side'
-  if (betValue === 'none') return '⚖️ Aucun gap'
+  if (betValue === 'blue')      return '🟦 Blue side'
+  if (betValue === 'red')       return '🟥 Red side'
+  if (betValue === 'none')      return '⚖️ Aucun gap'
   if (betValue === 'confirmed') return '✓'
   return betValue
 }
 
-// ─── groupBetsByGame ─────────────────────────────────────────
-function groupBetsByGame(bets) {
+function parseBetLabel(betValue, team1Code, team2Code) {
+  if (!betValue) return '—'
+  if (betValue === 'team1') return team1Code
+  if (betValue === 'team2') return team2Code
+  const parts = betValue.split('_')
+  if (parts.length === 2) {
+    const winner = parts[0] === 'team1' ? team1Code : team2Code
+    const loser  = parts[0] === 'team1' ? team2Code : team1Code
+    const [a, b] = parts[1].split('-')
+    return `${winner} ${a}—${b} ${loser}`
+  }
+  return betValue
+}
+
+// ─── groupBetsBySlip ─────────────────────────────────────────
+// Groupe par slip_id si présent, sinon chaque pari est son propre ticket
+function groupBetsBySlip(bets) {
   const groups = {}
+
   for (const bet of bets) {
-    const key = bet.live_game_id ?? `solo_${bet.id}`
+    // slip_id = clé du groupe → même soumission
+    // Pas de slip_id (anciens paris) → chaque pari est isolé
+    const key = bet.slip_id ?? `solo_${bet.id}`
     if (!groups[key]) groups[key] = []
     groups[key].push(bet)
   }
+
   return Object.values(groups)
     .map(group => {
-      const statuses = group.map(b => b.status)
-      let globalStatus = 'pending'
-      if (statuses.every(s => s === 'won'))       globalStatus = 'won'
-      else if (statuses.every(s => s === 'cancelled')) globalStatus = 'cancelled'
-      else if (statuses.some(s => s === 'lost'))   globalStatus = 'lost'
-      else if (statuses.some(s => s === 'pending')) globalStatus = 'pending'
-      else if (statuses.some(s => s === 'cancelled')) globalStatus = 'cancelled'
-      else globalStatus = 'cancelled'
+      const isCombined = group.length > 1
+      const statuses   = group.map(b => b.status)
 
-      const totalAmount = group.reduce((acc, b) => acc + b.amount, 0)
-      const totalPayout = group.reduce((acc, b) => acc + (b.payout || 0), 0)
-      const combinedOdds = group.reduce((acc, b) => acc * (b.odds || 2), 1)
+      let globalStatus = 'pending'
+      if (statuses.every(s => s === 'won'))            globalStatus = 'won'
+      else if (statuses.every(s => s === 'cancelled')) globalStatus = 'cancelled'
+      else if (statuses.some(s => s === 'lost'))       globalStatus = 'lost'
+      else if (statuses.some(s => s === 'pending'))    globalStatus = 'pending'
+      else                                              globalStatus = 'cancelled'
+
+      const totalAmount  = group.reduce((acc, b) => acc + b.amount, 0)
+      const totalPayout  = group.reduce((acc, b) => acc + (b.payout || 0), 0)
+      // Cote combinée seulement si vrai combiné, sinon cote simple
+      const combinedOdds = isCombined
+        ? group.reduce((acc, b) => acc * (b.odds || 2), 1)
+        : group[0].odds || 2
 
       return {
-        key:          group[0].live_game_id ?? `solo_${group[0].id}`,
+        key:          group[0].slip_id ?? `solo_${group[0].id}`,
         live_game_id: group[0].live_game_id,
         game_status:  group[0].game_status,
         game:         group[0].game,
         bets:         group,
+        isCombined,
         globalStatus,
         totalAmount,
         totalPayout,
@@ -118,39 +144,42 @@ function groupBetsByGame(bets) {
 function resolveGameCtx(ticket) {
   const game = ticket.game
   const pro  = game?.pro
+
   if (pro) {
     return {
-      type: 'pro', name: pro.name, sub: pro.team,
-      subColor: pro.accent_color || '#65BD62',
-      imgUrl: pro.photo_url,
-      initials: pro.name.slice(0, 2).toUpperCase(),
+      type:        'pro',
+      name:        pro.name,
+      sub:         pro.team,
+      subColor:    pro.accent_color || '#65BD62',
+      imgUrl:      pro.photo_url,
+      initials:    pro.name.slice(0, 2).toUpperCase(),
       borderColor: pro.accent_color || '#65BD62',
+      summonerName: pro.name,
+      region:       pro.region || 'EUW',
+      tag:          pro.tag_line || 'EUW',
     }
   }
-  const betPlayer = ticket.bets[0]?.game?.bet_player
-  const sumName   = betPlayer?.summoner_name || null
-  return {
-    type: 'casual', name: sumName || 'Joueur inconnu',
-    sub: QUEUE_NAMES[game?.queue] || 'Ranked',
-    subColor: '#6b7280', imgUrl: null,
-    initials: sumName ? sumName.slice(0, 2).toUpperCase() : '?',
-    borderColor: '#ffffff20',
-    summonerName: sumName, region: betPlayer?.region, tag: betPlayer?.tag_line,
-  }
-}
 
-function parseBetLabel(bet_value, team1_code, team2_code) {
-  if (!bet_value) return '—'
-  if (bet_value === 'team1') return team1_code
-  if (bet_value === 'team2') return team2_code
-  const parts = bet_value.split('_')
-  if (parts.length === 2) {
-    const winner = parts[0] === 'team1' ? team1_code : team2_code
-    const loser  = parts[0] === 'team1' ? team2_code : team1_code
-    const [a, b] = parts[1].split('-')
-    return `${winner} ${a}—${b} ${loser}`
+  const betPlayer  = ticket.bets[0]?.game?.bet_player
+  const sumName    = betPlayer?.summoner_name || null
+  const champName  = betPlayer?.champion_name || null
+  const tagLine   = betPlayer?.tag_line || null
+  const champIcon  = champName
+    ? `https://ddragon.leagueoflegends.com/cdn/14.7.1/img/champion/${champName}.png`
+    : null
+
+  return {
+    type:        'casual',
+    name:        sumName || 'Joueur inconnu',
+    sub:         null,   // ← supprimé : évite le doublon avec ticket-queue
+    subColor:    '#6b7280',
+    imgUrl:      champIcon,   // ← icône champion comme avatar
+    initials:    sumName ? sumName.slice(0, 2).toUpperCase() : '?',
+    borderColor: '#ffffff20',
+    summonerName: sumName,
+    region:       betPlayer?.region || 'EUW',
+    tag:          tagLine,
   }
-  return bet_value
 }
 
 // ─── EsportsBetRow ────────────────────────────────────────────
@@ -197,8 +226,10 @@ function EsportsBetRow({ bet, onCancel, i }) {
             <span className="esbet-fin-val">{bet.amount?.toLocaleString()} <span className="esbet-coin">coins</span></span>
           </div>
           <div className="esbet-fin-row">
-            <span className="esbet-fin-lbl">{bet.status === 'won' ? 'Gagné' : bet.status === 'cancelled' ? 'Remboursé' : 'Potentiel'}</span>
-            <span className="esbet-fin-val" style={{ color: bet.status === 'won' ? '#65BD62' : bet.status === 'cancelled' ? '#6b7280' : '#6b7280' }}>
+            <span className="esbet-fin-lbl">
+              {bet.status === 'won' ? 'Gagné' : bet.status === 'cancelled' ? 'Remboursé' : 'Potentiel'}
+            </span>
+            <span className="esbet-fin-val" style={{ color: bet.status === 'won' ? '#65BD62' : '#6b7280' }}>
               {bet.status === 'won'
                 ? `+${bet.payout?.toLocaleString()}`
                 : bet.status === 'cancelled'
@@ -247,7 +278,11 @@ function CancelModal({ bet, onConfirm, onClose }) {
         </div>
         <div className="cancel-modal-btns">
           <button className="cancel-btn-secondary" onClick={onClose}>Garder</button>
-          <button className="cancel-btn-primary" onClick={async () => { setLoading(true); await onConfirm(bet); setLoading(false) }} disabled={loading}>
+          <button
+            className="cancel-btn-primary"
+            onClick={async () => { setLoading(true); await onConfirm(bet); setLoading(false) }}
+            disabled={loading}
+          >
             {loading ? <span className="cancel-spinner" /> : "Confirmer l'annulation"}
           </button>
         </div>
@@ -265,7 +300,7 @@ export default function Bets() {
   const [esportsBets, setEsportsBets] = useState([])
   const [loading,     setLoading]     = useState(true)
   const [filter,      setFilter]      = useState('all')
-  const [tab,         setTab]         = useState('esports')
+  const [tab,         setTab]         = useState('games')
   const [page,        setPage]        = useState(1)
   const [cancelModal, setCancelModal] = useState(null)
 
@@ -273,24 +308,24 @@ export default function Bets() {
     if (!user) { navigate('/login'); return }
     Promise.all([api.get('/bets/my-bets'), api.get('/esports/bets/my-bets')])
       .then(([r1, r2]) => { setBets(r1.data); setEsportsBets(r2.data) })
-      .catch(() => {}).finally(() => setLoading(false))
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [user])
 
   useEffect(() => { setPage(1) }, [filter, tab])
 
-  const tickets = groupBetsByGame(bets)
+  const tickets = groupBetsBySlip(bets)
 
-  // Stats
-  const allWon     = [...tickets.filter(t => t.globalStatus === 'won'),     ...esportsBets.filter(b => b.status === 'won')]
-  const allLost    = [...tickets.filter(t => t.globalStatus === 'lost'),    ...esportsBets.filter(b => b.status === 'lost')]
-  const allPending = [...tickets.filter(t => t.globalStatus === 'pending'), ...esportsBets.filter(b => b.status === 'pending')]
+  // ── Stats globales ────────────────────────────────────────
+  const allWon       = [...tickets.filter(t => t.globalStatus === 'won'),       ...esportsBets.filter(b => b.status === 'won')]
+  const allLost      = [...tickets.filter(t => t.globalStatus === 'lost'),      ...esportsBets.filter(b => b.status === 'lost')]
+  const allPending   = [...tickets.filter(t => t.globalStatus === 'pending'),   ...esportsBets.filter(b => b.status === 'pending')]
   const allCancelled = [...tickets.filter(t => t.globalStatus === 'cancelled'), ...esportsBets.filter(b => b.status === 'cancelled')]
-  const totalGains = allWon.reduce((acc, b) => acc + (b.totalPayout || b.payout || 0), 0)
-  const resolved   = allWon.length + allLost.length
-  const winrate    = resolved > 0 ? Math.round((allWon.length / resolved) * 100) : 0
+  const resolved     = allWon.length + allLost.length
+  const winrate      = resolved > 0 ? Math.round((allWon.length / resolved) * 100) : 0
 
-  // Filtres
-  const filteredGame   = filter === 'all' ? tickets   : tickets.filter(t => t.globalStatus === filter)
+  // ── Filtres ───────────────────────────────────────────────
+  const filteredGame   = filter === 'all' ? tickets    : tickets.filter(t => t.globalStatus === filter)
   const filteredEsport = filter === 'all' ? esportsBets : esportsBets.filter(b => b.status === filter)
   const currentList    = tab === 'esports' ? filteredEsport : filteredGame
   const totalPages     = Math.ceil(currentList.length / PER_PAGE)
@@ -309,12 +344,14 @@ export default function Bets() {
       setEsportsBets(r.data)
       setCancelModal(null)
     } catch (e) {
-      alert(e.response?.data?.detail || 'Erreur lors de l\'annulation')
+      alert(e.response?.data?.detail || "Erreur lors de l'annulation")
     }
   }
 
   return (
     <div className="bets-page">
+
+      {/* ── Header ── */}
       <div className="bets-header">
         <div className="bets-header-inner">
           <div>
@@ -336,7 +373,7 @@ export default function Bets() {
 
       <div className="bets-content">
 
-        {/* Stats */}
+        {/* ── Stats ── */}
         <div className="bets-stats">
           {[
             { label: 'Total',      val: tickets.length + esportsBets.length, color: '#6b7280' },
@@ -353,7 +390,7 @@ export default function Bets() {
           ))}
         </div>
 
-        {/* Tabs */}
+        {/* ── Tabs ── */}
         <div className="bets-tabs">
           <button className={`bets-tab ${tab === 'esports' ? 'active' : ''}`} onClick={() => setTab('esports')}>
             <span className="bets-tab-icon">🏆</span>Paris officiels
@@ -365,25 +402,34 @@ export default function Bets() {
           </button>
         </div>
 
-        {/* Filtres */}
+        {/* ── Filtres ── */}
         <div className="bets-filters">
           {[
-            { key: 'all',       label: 'Tous',        count: currentList.length },
-            { key: 'pending',   label: 'En cours',    count: (tab === 'esports' ? esportsBets : tickets).filter(x => (x.status || x.globalStatus) === 'pending').length },
-            { key: 'won',       label: 'Gagnés',      count: (tab === 'esports' ? esportsBets : tickets).filter(x => (x.status || x.globalStatus) === 'won').length },
-            { key: 'lost',      label: 'Perdus',      count: (tab === 'esports' ? esportsBets : tickets).filter(x => (x.status || x.globalStatus) === 'lost').length },
-            { key: 'cancelled', label: 'Remboursés',  count: (tab === 'esports' ? esportsBets : tickets).filter(x => (x.status || x.globalStatus) === 'cancelled').length },
-          ].map(f => (
-            <button key={f.key} className={`filter-btn ${filter === f.key ? 'active' : ''}`} onClick={() => setFilter(f.key)}>
-              {f.label}<span className="filter-count">{f.count}</span>
-            </button>
-          ))}
+            { key: 'all',       label: 'Tous' },
+            { key: 'pending',   label: 'En cours' },
+            { key: 'won',       label: 'Gagnés' },
+            { key: 'lost',      label: 'Perdus' },
+            { key: 'cancelled', label: 'Remboursés' },
+          ].map(f => {
+            const src = tab === 'esports' ? esportsBets : tickets
+            const count = f.key === 'all'
+              ? currentList.length
+              : src.filter(x => (x.status || x.globalStatus) === f.key).length
+            return (
+              <button key={f.key} className={`filter-btn ${filter === f.key ? 'active' : ''}`} onClick={() => setFilter(f.key)}>
+                {f.label}<span className="filter-count">{count}</span>
+              </button>
+            )
+          })}
           {!loading && currentList.length > 0 && (
-            <div className="bets-result-count">{currentList.length} ticket{currentList.length > 1 ? 's' : ''}{totalPages > 1 && ` · page ${page}/${totalPages}`}</div>
+            <div className="bets-result-count">
+              {currentList.length} ticket{currentList.length > 1 ? 's' : ''}
+              {totalPages > 1 && ` · page ${page}/${totalPages}`}
+            </div>
           )}
         </div>
 
-        {/* Contenu */}
+        {/* ── Contenu ── */}
         {loading ? (
           <div className="bets-loading"><div className="bets-spinner" /><span>Chargement…</span></div>
         ) : currentList.length === 0 ? (
@@ -392,7 +438,9 @@ export default function Bets() {
             <div className="bets-empty-title">Aucun ticket trouvé</div>
             <div className="bets-empty-sub">
               {filter === 'all'
-                ? tab === 'esports' ? "Tu n'as pas encore parié sur des matchs officiels." : "Tu n'as pas encore placé de pari en game."
+                ? tab === 'esports'
+                  ? "Tu n'as pas encore parié sur des matchs officiels."
+                  : "Tu n'as pas encore placé de pari en game."
                 : `Aucun ticket « ${STATUS_CONFIG[filter]?.label} ».`}
             </div>
             {filter === 'all' && (
@@ -433,18 +481,31 @@ export default function Bets() {
                               : <span>{ctx.initials}</span>}
                           </div>
                           <div className="ticket-ctx-info">
-                            <div className="ticket-ctx-name"
-                              style={ctx.type === 'casual' && ctx.summonerName ? { cursor: 'pointer' } : {}}
-                              onClick={() => { if (ctx.type === 'casual' && ctx.summonerName && ctx.region) navigate(`/player/${ctx.region}/${encodeURIComponent(ctx.summonerName)}/${ctx.tag || 'EUW'}`) }}>
-                              {ctx.name}
-                            </div>
-                            <div className="ticket-ctx-sub" style={{ color: ctx.subColor }}>{ctx.sub}</div>
+                            <div
+                            className="ticket-ctx-name"
+                            style={{ cursor: ctx.summonerName && ctx.tag ? 'pointer' : 'default' }}
+                            onClick={() => {
+                              if (!ctx.summonerName || !ctx.tag) return   // ← bloque si tag absent
+                              navigate(`/player/${ctx.region}/${encodeURIComponent(ctx.summonerName)}/${ctx.tag}`)
+                            }}
+                          >
+                            {ctx.name}
+                          </div>
+                            {ctx.sub && (
+                              <div className="ticket-ctx-sub" style={{ color: ctx.subColor }}>{ctx.sub}</div>
+                            )}
                           </div>
                         </div>
                         <div className="ticket-ctx-meta">
                           <span className="ticket-queue">{QUEUE_NAMES[game?.queue] || 'Ranked'}</span>
                           <span className="ticket-date">{timeAgo(ticket.created_at)}</span>
                         </div>
+                        {/* Badge combiné */}
+                        {ticket.isCombined && (
+                          <div className="ticket-combined-badge">
+                            🎰 Combiné ×{ticket.bets.length}
+                          </div>
+                        )}
                       </div>
 
                       {/* Sélections */}
@@ -468,10 +529,10 @@ export default function Bets() {
                               <div className="ticket-sel-info">
                                 <div className="ticket-sel-type">{BET_TYPE_LABELS[bet.bet_type] || bet.bet_type}</div>
                                 <div className="ticket-sel-detail" style={{ color: sideColor || '#e8eaf0', fontWeight: 600 }}>
-                                  {betValueLabel(bet.bet_type, bet.bet_value)}
+                                  {betValueLabel(bet.bet_value)}
                                 </div>
                               </div>
-                              {ticket.bets.length > 1 && (
+                              {ticket.isCombined && (
                                 <div className="ticket-sel-status" style={{ color: betStatus.color }}>{betStatus.icon}</div>
                               )}
                               <span className="ticket-sel-odds">{bet.odds ? `×${Number(bet.odds).toFixed(2)}` : '×2'}</span>
@@ -487,12 +548,18 @@ export default function Bets() {
                             <span className="ticket-fin-lbl">Mise</span>
                             <span className="ticket-fin-val">{ticket.totalAmount.toLocaleString()} <span className="ticket-coin-lbl">coins</span></span>
                           </div>
+                          {ticket.isCombined && (
+                            <div className="ticket-fin-row">
+                              <span className="ticket-fin-lbl">Cote combinée</span>
+                              <span className="ticket-fin-val" style={{ color: '#c89b3c' }}>×{ticket.combinedOdds.toFixed(2)}</span>
+                            </div>
+                          )}
                           <div className="ticket-fin-row">
                             <span className="ticket-fin-lbl">
                               {ticket.globalStatus === 'won' ? 'Gagné' : ticket.globalStatus === 'lost' ? 'Perdu' : ticket.globalStatus === 'cancelled' ? 'Remboursé' : 'Potentiel'}
                             </span>
                             <span className="ticket-fin-val" style={{
-                              color: ticket.globalStatus === 'won' ? '#65BD62' : ticket.globalStatus === 'lost' ? '#ef4444' : ticket.globalStatus === 'cancelled' ? '#6b7280' : '#6b7280'
+                              color: ticket.globalStatus === 'won' ? '#65BD62' : ticket.globalStatus === 'lost' ? '#ef4444' : '#6b7280'
                             }}>
                               {ticket.globalStatus === 'won'
                                 ? `+${ticket.totalPayout.toLocaleString()}`
@@ -526,11 +593,15 @@ export default function Bets() {
             {totalPages > 1 && (
               <div className="bets-pagination">
                 <button className="page-btn" disabled={page === 1} onClick={() => setPage(p => p - 1)}>←</button>
-                {page > 2 && <><button className="page-btn" onClick={() => setPage(1)}>1</button>{page > 3 && <span className="page-dots">…</span>}</>}
+                {page > 2 && (
+                  <><button className="page-btn" onClick={() => setPage(1)}>1</button>{page > 3 && <span className="page-dots">…</span>}</>
+                )}
                 {getVisiblePages().map(p => (
                   <button key={p} className={`page-btn ${p === page ? 'active' : ''}`} onClick={() => setPage(p)}>{p}</button>
                 ))}
-                {page < totalPages - 1 && <>{page < totalPages - 2 && <span className="page-dots">…</span>}<button className="page-btn" onClick={() => setPage(totalPages)}>{totalPages}</button></>}
+                {page < totalPages - 1 && (
+                  <>{page < totalPages - 2 && <span className="page-dots">…</span>}<button className="page-btn" onClick={() => setPage(totalPages)}>{totalPages}</button></>
+                )}
                 <button className="page-btn" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>→</button>
               </div>
             )}

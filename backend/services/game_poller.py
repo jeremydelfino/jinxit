@@ -44,8 +44,8 @@ CHAMP_VERSION = "14.24.1"
 # CHAMPION MAPPING
 # ──────────────────────────────────────────────────────────────
 
-_champ_id_to_name:   dict[int, str]        = {}
-_champ_name_to_tags: dict[str, list[str]]  = {}
+_champ_id_to_name:   dict[int, str]       = {}
+_champ_name_to_tags: dict[str, list[str]] = {}
 
 async def load_champion_mapping():
     global _champ_id_to_name, _champ_name_to_tags
@@ -53,8 +53,7 @@ async def load_champion_mapping():
         async with httpx.AsyncClient(timeout=10) as client:
             versions = await client.get("https://ddragon.leagueoflegends.com/api/versions.json")
             latest   = versions.json()[0]
-
-            resp = await client.get(
+            resp     = await client.get(
                 f"https://ddragon.leagueoflegends.com/cdn/{latest}/data/en_US/champion.json"
             )
             data = resp.json()
@@ -66,6 +65,21 @@ async def load_champion_mapping():
 
 def get_champ_name(champ_id: int) -> str:
     return _champ_id_to_name.get(champ_id, "")
+
+def _resolve_champ_name(p: dict) -> str:
+    """
+    Résout le nom du champion depuis p['championName'] ou p['championId'].
+    Utilise le mapping DDragon si le nom est absent/vide.
+    """
+    name = p.get("championName", "")
+    if name and name != "Unknown":
+        return name.strip()
+    champ_id = p.get("championId")
+    if champ_id:
+        resolved = get_champ_name(champ_id)
+        if resolved:
+            return resolved
+    return ""
 
 # ──────────────────────────────────────────────────────────────
 # HELPERS
@@ -90,19 +104,13 @@ _role_history_cache: dict[str, tuple[str, float]] = {}
 ROLE_HISTORY_TTL = 600  # 10 minutes
 
 REGION_TO_REGIONAL = {
-    "EUW":  "europe",
-    "EUW1": "europe",
+    "EUW":  "europe", "EUW1": "europe",
     "EUNE": "europe",
-    "KR":   "asia",
-    "JP":   "asia",
-    "NA":   "americas",
-    "NA1":  "americas",
-    "BR":   "americas",
-    "BR1":  "americas",
-    "LAN":  "americas",
-    "LAS":  "americas",
-    "OC":   "sea",
-    "OC1":  "sea",
+    "KR":   "asia",   "JP":   "asia",
+    "NA":   "americas", "NA1": "americas",
+    "BR":   "americas", "BR1": "americas",
+    "LAN":  "americas", "LAS": "americas",
+    "OC":   "sea",    "OC1":  "sea",
 }
 
 async def get_recent_role(puuid: str, region: str) -> str | None:
@@ -192,12 +200,18 @@ async def build_teams(
     )
 
     def build_side(raw: list, history_map: dict) -> list:
+        # ── Enrichissement : résoudre championName depuis championId ──
         enriched = []
         for p in raw:
-            champ_id   = p.get("championId")
-            champ_name = p.get("championName") or (get_champ_name(champ_id) if champ_id else "")
+            champ_name = _resolve_champ_name(p)
+            if not champ_name:
+                logger.warning(
+                    f"   ⚠️  championName vide pour championId={p.get('championId')} "
+                    f"(mapping: {len(_champ_id_to_name)} entrées)"
+                )
             enriched.append({**p, "championName": champ_name})
 
+        # ── Assignation des rôles via role_detector ───────────────────
         try:
             fallback_roles = assign_roles(
                 enriched,
@@ -214,6 +228,7 @@ async def build_teams(
             champ_name = p.get("championName") or "Unknown"
             champ_id   = p.get("championId")
 
+            # Priorité : rôle connu du pro → assign_roles → FILL
             if pro_puuid_to_role.get(puuid):
                 role = pro_puuid_to_role[puuid]
             elif i < len(fallback_roles) and fallback_roles[i]:
@@ -237,25 +252,55 @@ async def build_teams(
 
 
 def patch_team(team: list, puuid_to_participant: dict, pro_puuid_to_role: dict) -> list:
-    live_list = [puuid_to_participant.get(p.get("puuid"), {}) for p in team]
+    """
+    Re-enrichit une team déjà en DB avec les données live :
+    - Résout championName depuis championId si vide
+    - Recalcule les rôles via assign_roles avec les tags DDragon
+    - Met à jour summonerName et spells depuis la game live
+    """
+    # ── Construire la liste enrichie pour assign_roles ────────
+    enriched_for_roles = []
+    for p in team:
+        puuid  = p.get("puuid", "")
+        live_p = puuid_to_participant.get(puuid, {})
+
+        champ_id   = p.get("championId") or live_p.get("championId")
+        champ_name = (
+            p.get("championName") or
+            live_p.get("championName") or
+            (get_champ_name(champ_id) if champ_id else "")
+        )
+        # Nettoyage
+        if champ_name == "Unknown":
+            champ_name = get_champ_name(champ_id) if champ_id else ""
+
+        enriched_for_roles.append({
+            **p,
+            "championName": champ_name,
+            "spell1Id":     live_p.get("spell1Id") or p.get("spell1Id"),
+            "spell2Id":     live_p.get("spell2Id") or p.get("spell2Id"),
+        })
+
+    # ── assign_roles avec tags DDragon ────────────────────────
     try:
-        spell_roles = assign_roles(live_list, champ_tag_map=_champ_name_to_tags)
+        spell_roles = assign_roles(
+            enriched_for_roles,
+            champ_tag_map = _champ_name_to_tags,
+        )
     except Exception as e:
         logger.error(f"Erreur assign_roles (patch): {e}", exc_info=True)
         spell_roles = []
 
+    # ── Construire le résultat final ──────────────────────────
     result = []
     for i, p in enumerate(team):
         puuid  = p.get("puuid", "")
         live_p = puuid_to_participant.get(puuid, {})
 
         champ_id   = p.get("championId") or live_p.get("championId")
-        champ_name = (
-            p.get("championName")
-            or live_p.get("championName")
-            or (get_champ_name(champ_id) if champ_id else "")
-        )
+        champ_name = enriched_for_roles[i]["championName"] if i < len(enriched_for_roles) else ""
 
+        # Priorité rôle : pro connu → assign_roles → rôle existant en DB → FILL
         if pro_puuid_to_role.get(puuid):
             role = pro_puuid_to_role[puuid]
         elif i < len(spell_roles) and spell_roles[i]:
@@ -266,7 +311,8 @@ def patch_team(team: list, puuid_to_participant: dict, pro_puuid_to_role: dict) 
         result.append({
             **p,
             "summonerName": extract_summoner_name(live_p) or p.get("summonerName", ""),
-            "championName": champ_name,
+            "championId":   champ_id,
+            "championName": champ_name or p.get("championName", ""),
             "spell1Id":     live_p.get("spell1Id") or p.get("spell1Id"),
             "spell2Id":     live_p.get("spell2Id") or p.get("spell2Id"),
             "role":         role,
@@ -275,8 +321,20 @@ def patch_team(team: list, puuid_to_participant: dict, pro_puuid_to_role: dict) 
 
 
 def needs_patch(team: list) -> bool:
+    """
+    Retourne True si la team a besoin d'être re-patchée :
+    - summonerName manquant
+    - spell1Id manquant
+    - championName manquant ou vide
+    - rôle null/FILL alors qu'on pourrait mieux faire
+    """
     return any(
-        not p.get("summonerName") or p.get("spell1Id") is None or not p.get("championName")
+        not p.get("summonerName")
+        or p.get("spell1Id") is None
+        or not p.get("championName")
+        or p.get("championName") == "Unknown"
+        or p.get("role") is None
+        or p.get("role") == "FILL"
         for p in team
     )
 
@@ -406,11 +464,19 @@ async def resolve_bets_for_game(game_id: int, riot_game_id: str, region: str):
         )
 
         all_players    = (game.blue_team or []) + (game.red_team or [])
-        puuid_by_champ = {
-            p.get("championName", "").lower(): p.get("puuid", "")
-            for p in all_players
-            if p.get("puuid") and p.get("championName")
-        }
+        puuid_by_champ = {}
+        for p in all_players:
+            puuid = p.get("puuid", "")
+            if not puuid:
+                continue
+            champ = p.get("championName", "")
+            # Fallback DDragon si championName vide ou Unknown
+            if not champ or champ == "Unknown":
+                champ_id = p.get("championId")
+                if champ_id:
+                    champ = get_champ_name(champ_id)
+            if champ:
+                puuid_by_champ[champ.lower()] = puuid
 
         for bet in pending_bets:
             slug          = bet.bet_type_slug
@@ -455,8 +521,8 @@ async def resolve_bets_for_game(game_id: int, riot_game_id: str, region: str):
                     refund_reason = "Données de dégâts indisponibles"
             elif slug == "jungle_gap":
                 if bet.bet_value == "none":
-                    won = (jungle_gap_side is None)
-                elif jungle_gap_side is None:
+                    won = (jungle_gap_side is None or jungle_gap_side == "none")
+                elif jungle_gap_side is None or jungle_gap_side == "none":
                     refund_reason = "Aucun Jungle Gap détecté dans cette partie"
                 else:
                     won = (bet.bet_value == jungle_gap_side)
@@ -509,8 +575,14 @@ async def resolve_bets_for_game(game_id: int, riot_game_id: str, region: str):
 # ──────────────────────────────────────────────────────────────
 
 async def poll_pro_games():
+    # ── Garantir le champion mapping avant tout ───────────────
     if not _champ_id_to_name:
+        logger.info("📚 Champion mapping absent — chargement forcé...")
         await load_champion_mapping()
+
+    if not _champ_id_to_name:
+        logger.error("❌ Champion mapping toujours vide après chargement — poll annulé")
+        return
 
     db: Session = SessionLocal()
     try:
@@ -559,7 +631,10 @@ async def poll_pro_games():
                         )
 
                         if len(blue_team) < 3 or len(red_team) < 3:
-                            logger.warning(f"   ⚠️ Game {riot_game_id} ignorée — teams invalides (blue={len(blue_team)}, red={len(red_team)})")
+                            logger.warning(
+                                f"   ⚠️ Game {riot_game_id} ignorée — "
+                                f"teams invalides (blue={len(blue_team)}, red={len(red_team)})"
+                            )
                             await asyncio.sleep(1.5)
                             continue
 
@@ -598,11 +673,19 @@ async def poll_pro_games():
                     red_needs  = needs_patch(existing.red_team  or [])
 
                     if blue_needs or red_needs:
-                        existing.blue_team = patch_team(existing.blue_team or [], puuid_to_participant, pro_puuid_to_role)
-                        existing.red_team  = patch_team(existing.red_team  or [], puuid_to_participant, pro_puuid_to_role)
+                        new_blue = patch_team(existing.blue_team or [], puuid_to_participant, pro_puuid_to_role)
+                        new_red  = patch_team(existing.red_team  or [], puuid_to_participant, pro_puuid_to_role)
+                        existing.blue_team = new_blue
+                        existing.red_team  = new_red
                         flag_modified(existing, "blue_team")
                         flag_modified(existing, "red_team")
                         logger.info(f"   🔄 Champions + noms + rôles patchés pour game {riot_game_id}")
+
+                    try:
+                        db.commit()
+                    except Exception as e:
+                        db.rollback()
+                        logger.warning(f"   ⚠️ Erreur commit update game {riot_game_id}: {e}")
 
                 await asyncio.sleep(1.5)
 
@@ -635,9 +718,20 @@ async def poll_pro_games():
                 pro_match = db.query(ProPlayer).filter(
                     ProPlayer.riot_puuid.in_(all_puuids)
                 ).first()
-                region = pro_match.region if pro_match else (
-                    "KR" if str(game.riot_game_id).startswith("8") else "EUW"
-                )
+                if pro_match:
+                    region = pro_match.region
+                elif game.region:
+                    region = game.region
+                else:
+                    # Fallback : chercher via SearchedPlayer lié à la game
+                    from models.player import SearchedPlayer
+                    searched = db.query(SearchedPlayer).filter(
+                        SearchedPlayer.id == game.searched_player_id
+                    ).first()
+                    if searched:
+                        region = searched.region
+                    else:
+                        region = "KR" if str(game.riot_game_id).startswith("8") else "EUW"
                 games_to_resolve.append((game.id, game.riot_game_id, region))
 
         db.commit()

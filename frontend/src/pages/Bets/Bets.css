@@ -182,6 +182,9 @@
 .page-btn:disabled { opacity: 0.25; cursor: not-allowed; }
 .page-dots { color: #374151; font-size: 12px; font-family: 'Inter', sans-serif; padding: 0 4px; }
 
+/* ─── COMBINÉ BADGE ─── */
+.ticket-combined-badge { display: inline-flex; align-items: center; gap: 4px; background: #e2b14712; border: 1px solid #e2b14728; color: #e2b147; border-radius: 5px; padding: 2px 8px; font-size: 9px; font-weight: 700; letter-spacing: 0.8px; font-family: 'Inter', sans-serif; width: fit-content; }
+
 /* ─── RESPONSIVE ─── */
 @media (max-width: 1024px) {
   .bets-stats { grid-template-columns: repeat(3, 1fr); }

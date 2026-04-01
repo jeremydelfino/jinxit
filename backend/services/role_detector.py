@@ -126,10 +126,10 @@ def _role_scores(
 
     champ_name = p.get("championName", "?")
     hist_str   = f" [hist:{history_role}]" if history_role else ""
-    # print(
-    #     f"  📊 {champ_name:15s}{hist_str} | spells={sorted(sp)} | tags={champ_tags} | "
-    #     f"scores={{ {', '.join(f'{r}:{v:.0f}' for r, v in scores.items())} }}"
-    # )
+    print(
+        f"  📊 {champ_name:15s}{hist_str} | spells={sorted(sp)} | tags={champ_tags} | "
+        f"scores={{ {', '.join(f'{r}:{v:.0f}' for r, v in scores.items())} }}"
+    )
 
     return scores
 
@@ -143,7 +143,7 @@ def assign_roles(
     if n == 0:
         return []
 
-    # print("🎯 assign_roles — début")
+    print("🎯 assign_roles — début")
 
     score_matrix = [
         _role_scores(
@@ -174,6 +174,6 @@ def assign_roles(
     backtrack(0, roles_to_assign, 0.0, [])
 
     result = list(zip([p.get("championName", "?") for p in team], best_assignment))
-    # print(f"✅ assign_roles — résultat: {result} (score={best_score:.1f})")
+    print(f"✅ assign_roles — résultat: {result} (score={best_score:.1f})")
 
     return best_assignment
