@@ -156,7 +156,7 @@ async def link_riot_init(
     db.commit()
     return {
         "icon_id":      icon_id,
-        "icon_url":     f"https://ddragon.leagueoflegends.com/cdn/14.10.1/img/profileicon/{icon_id}.png",
+        "icon_url":     f"https://ddragon.leagueoflegends.com/cdn/16.7.1/img/profileicon/{icon_id}.png",
         "instructions": f"Change ton icône pour l'icône n°{icon_id} dans LoL, puis clique Vérifier",
         "game_name":    body.game_name,
         "tag_line":     body.tag_line,

@@ -165,7 +165,7 @@ function resolveGameCtx(ticket) {
   const champName  = betPlayer?.champion_name || null
   const tagLine   = betPlayer?.tag_line || null
   const champIcon  = champName
-    ? `https://ddragon.leagueoflegends.com/cdn/14.7.1/img/champion/${champName}.png`
+    ? `https://ddragon.leagueoflegends.com/cdn/16.7.1/img/champion/${champName}.png`
     : null
 
   return {

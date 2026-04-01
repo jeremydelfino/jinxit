@@ -83,7 +83,7 @@ async def register_init_riot(body: RiotInitSchema, db: Session = Depends(get_db)
         raise HTTPException(400, "Ce compte Riot est déjà lié à un compte JungleGap")
 
     icon_id  = random.randint(1, 28)
-    icon_url = f"https://ddragon.leagueoflegends.com/cdn/14.10.1/img/profileicon/{icon_id}.png"
+    icon_url = f"https://ddragon.leagueoflegends.com/cdn/16.7.1/img/profileicon/{icon_id}.png"
 
     return {
         "puuid":     puuid,
