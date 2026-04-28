@@ -217,6 +217,7 @@ async def build_teams(
                 enriched,
                 champ_tag_map = _champ_name_to_tags,
                 history_map   = history_map,
+                pro_role_map  = pro_puuid_to_role,   # ← biais fort, mais l'algo garantit l'unicité
             )
         except Exception as e:
             logger.error(f"Erreur assign_roles: {e}", exc_info=True)
@@ -228,10 +229,8 @@ async def build_teams(
             champ_name = p.get("championName") or "Unknown"
             champ_id   = p.get("championId")
 
-            # Priorité : rôle connu du pro → assign_roles → FILL
-            if pro_puuid_to_role.get(puuid):
-                role = pro_puuid_to_role[puuid]
-            elif i < len(fallback_roles) and fallback_roles[i]:
+            # assign_roles intègre déjà le biais pro_role → résultat unique garanti
+            if i < len(fallback_roles) and fallback_roles[i]:
                 role = ROLE_MAP.get(fallback_roles[i].upper(), "FILL")
             else:
                 role = "FILL"
@@ -286,6 +285,7 @@ def patch_team(team: list, puuid_to_participant: dict, pro_puuid_to_role: dict) 
         spell_roles = assign_roles(
             enriched_for_roles,
             champ_tag_map = _champ_name_to_tags,
+            pro_role_map  = pro_puuid_to_role,   # ← idem, biais fort résolu globalement
         )
     except Exception as e:
         logger.error(f"Erreur assign_roles (patch): {e}", exc_info=True)
@@ -300,13 +300,11 @@ def patch_team(team: list, puuid_to_participant: dict, pro_puuid_to_role: dict) 
         champ_id   = p.get("championId") or live_p.get("championId")
         champ_name = enriched_for_roles[i]["championName"] if i < len(enriched_for_roles) else ""
 
-        # Priorité rôle : pro connu → assign_roles → rôle existant en DB → FILL
-        if pro_puuid_to_role.get(puuid):
-            role = pro_puuid_to_role[puuid]
-        elif i < len(spell_roles) and spell_roles[i]:
+# assign_roles intègre déjà le biais pro_role → résultat unique garanti
+        if i < len(spell_roles) and spell_roles[i]:
             role = ROLE_MAP.get(spell_roles[i].upper(), "FILL")
         else:
-            role = p.get("role") or "FILL"
+            role = "FILL"
 
         result.append({
             **p,

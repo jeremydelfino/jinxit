@@ -403,18 +403,27 @@ def _greedy_assign(cost_matrix: list[list[float]]) -> list[int]:
     return result
 
 
+def _adjust_cost_with_pro_role(cost: dict[str, float], pro_role: str | None) -> dict[str, float]:
+    """
+    Si on connaît le rôle officiel d'un pro, on baisse FORTEMENT le coût
+    pour ce rôle. Plus fort que l'historique (-8) mais pas infini, ce qui
+    permet à l'algo Hongrois de résoudre les conflits si deux pros de
+    la même équipe sont marqués sur le même rôle (substitut, mauvais seed).
+    """
+    if not pro_role or pro_role not in ROLE_ORDER:
+        return cost
+    cost[pro_role] -= 50.0
+    return cost
+
 def assign_roles(
     team: list[dict],
     champ_tag_map: dict[str, list] = {},
     history_map:   dict[str, str]  = {},
+    pro_role_map:  dict[str, str]  = {},   # ← NOUVEAU
 ) -> list[str]:
     """
-    Point d'entrée principal. Retourne pour chaque joueur de l'équipe le rôle assigné.
-
-    Args:
-        team:           liste des participants (dicts avec championName, spell1Id, spell2Id, puuid)
-        champ_tag_map:  { championName: [tags] } — DDragon
-        history_map:    { puuid: role_principal_recent } — DB
+    [...docstring inchangé...]
+    pro_role_map: { puuid: role_officiel } — biais fort vers le rôle pro
     """
     n = len(team)
     if n == 0:
@@ -423,25 +432,25 @@ def assign_roles(
         logger.warning(f"assign_roles: équipe à {n} joueurs (attendu 5), fallback ROLE_ORDER")
         return ROLE_ORDER[:n]
 
-    # ── Construction de la matrice de coût ────────────────────
     cost_matrix: list[list[float]] = []
     debug_rows = []
 
     for idx, p in enumerate(team):
-        champ  = p.get("championName", "")
-        tags   = champ_tag_map.get(champ, [])
-        spells = _spell_set(p)
-        hist   = history_map.get(p.get("puuid", ""))
+        champ    = p.get("championName", "")
+        tags     = champ_tag_map.get(champ, [])
+        spells   = _spell_set(p)
+        hist     = history_map.get(p.get("puuid", ""))
+        pro_role = pro_role_map.get(p.get("puuid", ""))   # ← NOUVEAU
 
         cost = _base_cost_from_tags(champ, tags)
         cost = _adjust_cost_with_spells(cost, spells, tags)
         cost = _adjust_cost_with_history(cost, hist)
         cost = _adjust_cost_with_position(cost, idx)
+        cost = _adjust_cost_with_pro_role(cost, pro_role)   # ← NOUVEAU
 
         cost_matrix.append([cost[role] for role in ROLE_ORDER])
-        debug_rows.append((champ, tags, spells, hist, cost))
+        debug_rows.append((champ, tags, spells, hist, pro_role, cost))
 
-    # ── Résolution Hongrois ──────────────────────────────────
     try:
         col_assignment = _hungarian(cost_matrix)
     except Exception as e:
@@ -450,11 +459,11 @@ def assign_roles(
 
     result = [ROLE_ORDER[col] if 0 <= col < len(ROLE_ORDER) else "FILL" for col in col_assignment]
 
-    # ── Logs ──────────────────────────────────────────────────
     logger.info("🎯 assign_roles (Hungarian) — résultat:")
-    for (champ, tags, spells, hist, cost), role in zip(debug_rows, result):
+    for (champ, tags, spells, hist, pro_role, cost), role in zip(debug_rows, result):
         cost_str = " ".join(f"{r}:{cost[r]:.0f}" for r in ROLE_ORDER)
         hist_str = f" hist:{hist}" if hist else ""
-        logger.info(f"   {champ:15s} → {role:8s} | spells={sorted(spells)} | {cost_str}{hist_str}")
+        pro_str  = f" pro:{pro_role}" if pro_role else ""
+        logger.info(f"   {champ:15s} → {role:8s} | spells={sorted(spells)} | {cost_str}{hist_str}{pro_str}")
 
     return result

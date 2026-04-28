@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from models.esports_team_stats import EsportsTeamStats
 from models.esports_team_rating import EsportsTeamRating
+from models.team_form import TeamForm
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +135,23 @@ def _analyze_completed_events(events: list, team_code: str, opponent_code: str |
         "n_matches": len(team_matches), "recent_week": recent_week, "streak": streak_val if streak_sign else -streak_val
     }
 
+def _get_team_form_from_db(team_code: str, db: Session) -> dict | None:
+    """
+    Lit TeamForm pour avoir forme_score et streak sans recalculer.
+    Retourne None si pas de data → fallback sur _analyze_completed_events.
+    """
+    tf = db.query(TeamForm).filter(TeamForm.team_code == team_code.upper()).first()
+    if not tf:
+        return None
+    # Conversion streak → momentum [0.10, 0.90] (même mapping que _analyze)
+    momentum = _clamp(0.50 + (tf.streak * 0.08), 0.10, 0.90)
+    return {
+        "forme":    tf.forme_score,
+        "momentum": momentum,
+        "streak":   tf.streak,
+        "last_5":   tf.last_5_results,
+    }
+
 def compute_team_score(team_code: str, league_slug: str, opp_code: str, events: list, db: Session) -> dict:
     winrate_saison = _get_winrate_saison(team_code, league_slug, db)
     prior          = PRIOR_WINRATES.get(team_code, 0.50)
@@ -141,6 +159,12 @@ def compute_team_score(team_code: str, league_slug: str, opp_code: str, events: 
     manual_boost   = _get_manual_boost(team_code, db)
 
     analysis  = _analyze_completed_events(events, team_code, opp_code)
+
+    db_form = _get_team_form_from_db(team_code, db)
+    if db_form:
+        analysis["forme"]    = db_form["forme"]
+        analysis["momentum"] = db_form["momentum"]
+        analysis["streak"]   = db_form["streak"]
     
     # Calcul du score pondéré
     score = (

@@ -1,20 +1,18 @@
 """
 services/live_odds_engine.py
-Moteur de côtes pour les games live (ranked solo/duo avec pros ou joueurs lambda).
+Moteur de côtes pour les games live (ranked solo/duo).
 
-Formule par équipe :
-  score = winrate_global * 0.25
-        + winrate_champ  * 0.25
-        + forme_5        * 0.20
-        + winrate_team   * 0.10   (moyenne winrate_global des 5 joueurs)
-        + draft_score    * 0.20
+Score d'équipe (somme des poids = 1.0) :
+  player_strength    0.40   joueurs : winrate global, winrate sur le champ joué, forme 5 dernières
+  champion_strength  0.35   ChampionStats : winrate du champion sur sa lane (DB)
+  synergy_strength   0.20   ChampionSynergy : somme des synergy_score des paires de la compo (DB)
+  meta_strength      0.05   ChampionStats : pickrate moyen (compo méta vs off-meta)
 
-  s_blue, s_red = score_blue ** EXPONENT, score_red ** EXPONENT   # POLARISATION
-  prob_blue     = s_blue / (s_blue + s_red)
-  cote_blue     = (1 / prob_blue) * MARGIN
+Polarisation finale par exponentiation : prob = score^EXPONENT / sum.
 """
 import asyncio
 import logging
+import time
 from database import SessionLocal
 from models.champion_stats import ChampionStats
 from models.champion_synergy import ChampionSynergy
@@ -23,23 +21,28 @@ from services.riot_stats import get_player_stats
 logger = logging.getLogger(__name__)
 
 # ─── Paramètres bookmaker ────────────────────────────────────
-MARGIN     = 0.92    # Marge bookmaker (~8%)
-EXPONENT   = 3.5     # Polarisation : favorite à 60% → 71%, à 70% → 88%
-MIN_ODDS   = 1.05    # Avant : 1.20 (trop plat)
-MAX_ODDS   = 12.0    # Avant : 4.00 (impossible d'avoir un vrai outsider)
-PROB_FLOOR = 0.05    # Avant : 0.20 (idem, anti-extrême trop dur)
-PROB_CEIL  = 0.95
+MARGIN     = 0.92
+EXPONENT   = 4.5
+MIN_ODDS   = 1.05
+MAX_ODDS   = 15.0
+PROB_FLOOR = 0.04
+PROB_CEIL  = 0.96
+SPREAD_GAIN = 1.5    # amplification (score - 0.5) avant polarisation
 
 # ─── Poids du score d'équipe ─────────────────────────────────
 WEIGHTS = {
-    "winrate_global": 0.25,
-    "winrate_champ":  0.25,
-    "forme_5":        0.20,
-    "winrate_team":   0.10,
-    "draft":          0.20,
+    "player":   0.40,
+    "champion": 0.35,
+    "synergy":  0.20,
+    "meta":     0.05,
+}
+PLAYER_SUB = {
+    "winrate_global": 0.40,
+    "winrate_champ":  0.35,
+    "forme_5":        0.25,
 }
 
-# ─── Côtes fixes pour les paris non-victoire ─────────────────
+# ─── Côtes fixes des paris non-victoire ──────────────────────
 FIXED_ODDS = {
     "first_blood":            8.0,
     "first_tower":            2.5,
@@ -56,50 +59,9 @@ FIXED_ODDS = {
     "jungle_gap":             2.0,
 }
 
-# ─── Tier list champions (winrate moyen patch actuel) ────────
-CHAMP_WINRATE: dict[str, float] = {
-    # TOP
-    "Darius": 0.52, "Garen": 0.53, "Malphite": 0.52, "Sett": 0.51,
-    "Fiora": 0.50, "Camille": 0.49, "Irelia": 0.48, "Riven": 0.49,
-    "Jax": 0.51, "Nasus": 0.54, "Teemo": 0.52, "Urgot": 0.52,
-    "Aatrox": 0.50, "Gnar": 0.50, "Renekton": 0.49, "Ornn": 0.51,
-    "Vladimir": 0.50, "Kennen": 0.50, "Gangplank": 0.49,
-    # JUNGLE
-    "Lee Sin": 0.47, "Vi": 0.52, "Warwick": 0.54, "Hecarim": 0.52,
-    "Nocturne": 0.53, "Amumu": 0.54, "Zac": 0.53, "Jarvan IV": 0.51,
-    "Nidalee": 0.47, "Elise": 0.48, "Graves": 0.50, "Kindred": 0.49,
-    "Kha'Zix": 0.51, "Rengar": 0.50, "Shaco": 0.51, "Udyr": 0.52,
-    "Viego": 0.50, "Lillia": 0.51, "Diana": 0.52, "Evelynn": 0.50,
-    # MID
-    "Zed": 0.50, "Syndra": 0.51, "Orianna": 0.51, "Viktor": 0.50,
-    "Lux": 0.53, "Veigar": 0.53, "Annie": 0.54, "Malzahar": 0.53,
-    "Ahri": 0.52, "Yasuo": 0.49, "Yone": 0.50, "Katarina": 0.50,
-    "Akali": 0.48, "Fizz": 0.51, "Cassiopeia": 0.51, "Twisted Fate": 0.50,
-    # ADC
-    "Jinx": 0.53, "Caitlyn": 0.51, "Miss Fortune": 0.53, "Ashe": 0.53,
-    "Jhin": 0.52, "Sivir": 0.52, "Xayah": 0.51, "Draven": 0.50,
-    "Kai'Sa": 0.51, "Ezreal": 0.49, "Lucian": 0.49, "Tristana": 0.51,
-    "Twitch": 0.52, "Kog'Maw": 0.53, "Samira": 0.51, "Zeri": 0.50,
-    # SUPPORT
-    "Thresh": 0.50, "Lulu": 0.53, "Nautilus": 0.52, "Blitzcrank": 0.52,
-    "Soraka": 0.54, "Nami": 0.53, "Janna": 0.54, "Morgana": 0.52,
-    "Leona": 0.51, "Alistar": 0.51, "Braum": 0.51, "Pyke": 0.50,
-    "Senna": 0.51, "Zyra": 0.52, "Bard": 0.50, "Karma": 0.52,
-}
-
-# ─── Synergies connues (paires de champions) ─────────────────
-SYNERGIES: dict[frozenset, float] = {
-    frozenset({"Yasuo",      "Malphite"}):     0.14,
-    frozenset({"Yasuo",      "Wukong"}):       0.12,
-    frozenset({"Kalista",    "Thresh"}):       0.13,
-    frozenset({"Lucian",     "Nami"}):         0.13,
-    frozenset({"Xayah",      "Rakan"}):        0.14,
-    frozenset({"Miss Fortune","Leona"}):       0.11,
-    frozenset({"Ornn",       "Aphelios"}):     0.11,
-    frozenset({"Twisted Fate","Nocturne"}):    0.13,
-    frozenset({"Twisted Fate","Zed"}):         0.11,
-    frozenset({"Shen",       "Miss Fortune"}): 0.12,
-    frozenset({"Shen",       "Jinx"}):         0.11,
+ROLE_TO_LANE = {
+    "TOP": "TOP", "JUNGLE": "JUNGLE", "MID": "MID", "MIDDLE": "MID",
+    "ADC": "ADC", "BOTTOM": "ADC", "SUPPORT": "SUPPORT", "UTILITY": "SUPPORT",
 }
 
 
@@ -107,159 +69,250 @@ def _clamp(val: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, val))
 
 
-_DB_WR_CACHE: dict = {"data": None, "expires_at": 0}
-_DB_WR_TTL_SECONDS = 600  # 10 min
+# ──────────────────────────────────────────────────────────────
+# CACHE DB (10 min) — évite de hammer ChampionStats à chaque game
+# ──────────────────────────────────────────────────────────────
 
-def _load_champion_winrates_from_db() -> dict[str, float] | None:
-    """Charge le dict {champion: winrate} depuis la DB (région ALL, lane ALL pondéré).
-    Retourne None si la table est vide → fallback sur CHAMP_WINRATE hardcodé."""
-    import time
-    now = time.time()
-    if _DB_WR_CACHE["data"] is not None and _DB_WR_CACHE["expires_at"] > now:
-        return _DB_WR_CACHE["data"]
+_DB_CACHE: dict = {}
+_DB_TTL_SECONDS = 600
+
+
+def _cache_get(key: str):
+    entry = _DB_CACHE.get(key)
+    if not entry or time.time() > entry["expires_at"]:
+        _DB_CACHE.pop(key, None)
+        return None
+    return entry["data"]
+
+
+def _cache_set(key: str, data):
+    _DB_CACHE[key] = {"data": data, "expires_at": time.time() + _DB_TTL_SECONDS}
+
+
+def _load_champion_stats() -> dict | None:
+    """
+    { (champion, lane): {winrate, pickrate, n_games} }
+    Agrège EUW + KR par moyenne pondérée sur n_games. Tier MASTER.
+    Retourne None si DB vide.
+    """
+    cached = _cache_get("champ_stats")
+    if cached is not None:
+        return cached
 
     db = SessionLocal()
     try:
-        rows = db.query(ChampionStats).filter(
-            ChampionStats.tier   == "MASTER",
-            ChampionStats.region == "ALL",
-        ).all()
+        rows = db.query(ChampionStats).filter(ChampionStats.tier == "MASTER").all()
         if not rows:
+            logger.warning("⚠️  ChampionStats DB vide — fallback hardcodé activé")
             return None
 
-        # Agrège toutes lanes confondues, pondéré par n_games
-        agg: dict[str, list[tuple[float, int]]] = {}
+        agg: dict = {}
         for r in rows:
-            agg.setdefault(r.champion, []).append((r.winrate, r.n_games))
+            key = (r.champion, r.lane)
+            if key not in agg:
+                agg[key] = {"wins": 0, "total": 0}
+            agg[key]["wins"]  += r.wins
+            agg[key]["total"] += r.n_games
+
+        total_by_lane: dict = {}
+        for (_, lane), d in agg.items():
+            total_by_lane[lane] = total_by_lane.get(lane, 0) + d["total"]
 
         result = {}
-        for champ, items in agg.items():
-            total_games = sum(n for _, n in items)
-            if total_games == 0:
+        for (champ, lane), d in agg.items():
+            if d["total"] < 20:
                 continue
-            wr = sum(w * n for w, n in items) / total_games
-            result[champ] = wr
+            wr = d["wins"] / d["total"]
+            pr = d["total"] / max(total_by_lane.get(lane, 1), 1)
+            result[(champ, lane)] = {"winrate": wr, "pickrate": pr, "n_games": d["total"]}
 
-        _DB_WR_CACHE["data"]       = result
-        _DB_WR_CACHE["expires_at"] = now + _DB_WR_TTL_SECONDS
-        logger.info(f"📥 ChampionStats DB → {len(result)} champions chargés en cache")
+        _cache_set("champ_stats", result)
+        logger.info(f"📥 ChampionStats DB → {len(result)} (champion, lane) chargés")
         return result
     except Exception as e:
-        logger.warning(f"_load_champion_winrates_from_db error : {e}, fallback hardcoded")
+        logger.warning(f"_load_champion_stats failed: {e}")
         return None
     finally:
         db.close()
 
 
-def _load_synergies_from_db() -> dict[frozenset, float] | None:
-    """Charge {frozenset({c1,c2}): synergy_score}. Retourne None si vide."""
-    import time
-    now = time.time()
-    cache_key = "synergies"
-    if _DB_WR_CACHE.get(cache_key) is not None and _DB_WR_CACHE.get(f"{cache_key}_exp", 0) > now:
-        return _DB_WR_CACHE[cache_key]
+def _load_synergies() -> dict | None:
+    """{ frozenset({champA, champB}): synergy_score } depuis DB."""
+    cached = _cache_get("synergies")
+    if cached is not None:
+        return cached
 
     db = SessionLocal()
     try:
         rows = db.query(ChampionSynergy).filter(
-            ChampionSynergy.tier   == "MASTER",
-            ChampionSynergy.region == "ALL",
-            ChampionSynergy.synergy_score > 0.02,  # seuil : on garde que les vraies synergies
+            ChampionSynergy.tier == "MASTER",
+            ChampionSynergy.synergy_score > 0.02,
         ).all()
         if not rows:
+            logger.warning("⚠️  ChampionSynergy DB vide — pas de bonus synergie")
             return None
         result = {frozenset({r.champion_a, r.champion_b}): r.synergy_score for r in rows}
-        _DB_WR_CACHE[cache_key]               = result
-        _DB_WR_CACHE[f"{cache_key}_exp"]      = now + _DB_WR_TTL_SECONDS
+        _cache_set("synergies", result)
         logger.info(f"📥 ChampionSynergy DB → {len(result)} paires chargées")
         return result
-    except Exception:
+    except Exception as e:
+        logger.warning(f"_load_synergies failed: {e}")
         return None
     finally:
         db.close()
 
 
-# ── Remplace ta fonction _draft_score existante par celle-ci ──
-def _draft_score(champ_names: list[str]) -> float:
-    """
-    Score de draft [0, 1] basé sur :
-    - Moyenne des winrates champion (DB > fallback hardcodé)
-    - Bonus synergies détectées dans la composition (DB > fallback hardcodé)
-    """
-    champs = [c for c in champ_names if c]
+# ──────────────────────────────────────────────────────────────
+# COMPOSANTES DU SCORE
+# ──────────────────────────────────────────────────────────────
 
-    # Source DB en priorité, fallback sur le dict hardcodé
-    db_winrates = _load_champion_winrates_from_db()
-    db_synergies = _load_synergies_from_db()
+def _player_strength(stats: dict) -> float:
+    return (
+        stats["winrate_global"] * PLAYER_SUB["winrate_global"]
+        + stats["winrate_champ"]  * PLAYER_SUB["winrate_champ"]
+        + stats["forme_5"]        * PLAYER_SUB["forme_5"]
+    )
 
-    wr_source       = db_winrates if db_winrates is not None else CHAMP_WINRATE
-    synergy_source  = db_synergies if db_synergies is not None else SYNERGIES
 
-    # Winrate moyen des champions
-    wr_list = [wr_source.get(c, 0.50) for c in champs]
-    wr_mean = sum(wr_list) / len(wr_list) if wr_list else 0.50
+def _champion_strength(team: list[dict], champ_stats: dict | None) -> tuple[float, dict]:
+    """Moyenne des winrates des 5 champions sur leur lane."""
+    wrs = []
+    detail = {}
+    for p in team:
+        champ = p.get("championName") or ""
+        role  = (p.get("role") or "").upper()
+        lane  = ROLE_TO_LANE.get(role, "")
 
-    # Bonus synergies
-    synergie_bonus = 0.0
+        wr = 0.50
+        if champ_stats and lane:
+            entry = champ_stats.get((champ, lane))
+            if entry:
+                wr = entry["winrate"]
+            else:
+                # Fallback : moyenne pondérée toutes lanes pour ce champ
+                all_lanes = [v for (c, _), v in champ_stats.items() if c == champ]
+                if all_lanes:
+                    tot = sum(v["n_games"] for v in all_lanes)
+                    wr = sum(v["winrate"] * v["n_games"] for v in all_lanes) / tot
+
+        wrs.append(wr)
+        detail[champ or "?"] = round(wr, 3)
+
+    return (sum(wrs) / len(wrs) if wrs else 0.50), detail
+
+
+def _synergy_strength(team: list[dict], synergies: dict | None) -> tuple[float, list]:
+    """Score [0.20, 0.90] basé sur la somme des synergy_score des paires de la compo."""
+    if not synergies:
+        return 0.50, []
+
+    champs = [p.get("championName", "") for p in team if p.get("championName")]
+    bonus = 0.0
+    pairs_found = []
     seen = set()
     for i in range(len(champs)):
         for j in range(i + 1, len(champs)):
             pair = frozenset({champs[i], champs[j]})
-            if pair in synergy_source and pair not in seen:
-                synergie_bonus += synergy_source[pair]
+            if pair in synergies and pair not in seen:
+                bonus += synergies[pair]
                 seen.add(pair)
-    synergie_bonus = min(synergie_bonus, 0.15)
+                pairs_found.append({"champs": list(pair), "score": round(synergies[pair], 3)})
 
-    draft = (wr_mean - 0.50) * 2 + 0.50
-    return _clamp(draft + synergie_bonus, 0.30, 0.85)
+    # synergy_score typique ∈ [0.02, 0.10] par paire. Compo synergique max ≈ 0.30.
+    # Mapping linéaire : 0 → 0.50, 0.30 → 0.90.
+    score = 0.50 + min(bonus, 0.30) * (0.40 / 0.30)
+    return _clamp(score, 0.20, 0.90), pairs_found
 
-async def _team_score(team: list[dict], region: str) -> tuple[float, list[dict]]:
+
+def _meta_strength(team: list[dict], champ_stats: dict | None) -> float:
+    """Pickrate moyen → compo méta = score haut, off-meta = score bas."""
+    if not champ_stats:
+        return 0.50
+    prs = []
+    for p in team:
+        champ = p.get("championName") or ""
+        lane  = ROLE_TO_LANE.get((p.get("role") or "").upper(), "")
+        if not lane:
+            continue
+        entry = champ_stats.get((champ, lane))
+        if entry:
+            prs.append(entry["pickrate"])
+
+    if not prs:
+        return 0.50
+
+    avg = sum(prs) / len(prs)
+    # pickrate typique ∈ [0.02, 0.12]. Mapping linéaire → [0.20, 0.80].
+    return _clamp(0.20 + (avg - 0.02) / 0.10 * 0.60, 0.20, 0.90)
+
+
+# ──────────────────────────────────────────────────────────────
+# SCORE D'ÉQUIPE
+# ──────────────────────────────────────────────────────────────
+
+async def _team_score(team: list[dict], region: str) -> tuple[float, dict]:
+    # Stats joueurs (Riot API en parallèle)
     tasks = []
     for p in team:
-        puuid = p.get("puuid")
-        champ = p.get("championName")
-        if puuid:
-            tasks.append(get_player_stats(puuid, region, champ))
+        if p.get("puuid"):
+            tasks.append(get_player_stats(p["puuid"], region, p.get("championName")))
         else:
             tasks.append(_default_stats_coro())
 
     stats_list = await asyncio.gather(*tasks, return_exceptions=True)
-
-    player_details = []
-    valid_stats    = []
+    valid_stats, players_detail = [], []
     for p, stats in zip(team, stats_list):
         if isinstance(stats, Exception) or stats is None:
             stats = _default_stats_dict()
         valid_stats.append(stats)
-        player_details.append({
+        players_detail.append({
             "summonerName":   p.get("summonerName", ""),
             "championName":   p.get("championName", ""),
+            "role":           p.get("role", ""),
             "winrate_global": stats["winrate_global"],
             "winrate_champ":  stats["winrate_champ"],
             "forme_5":        stats["forme_5"],
             "n_games":        stats["n_games"],
         })
 
-    wr_team_mean = sum(s["winrate_global"] for s in valid_stats) / len(valid_stats) if valid_stats else 0.50
+    avg_player = (
+        sum(_player_strength(s) for s in valid_stats) / len(valid_stats)
+        if valid_stats else 0.50
+    )
 
-    individual_weight = WEIGHTS["winrate_global"] + WEIGHTS["winrate_champ"] + WEIGHTS["forme_5"]
-    def player_score(s: dict) -> float:
-        return (
-            s["winrate_global"] * WEIGHTS["winrate_global"] / individual_weight
-            + s["winrate_champ"]  * WEIGHTS["winrate_champ"]  / individual_weight
-            + s["forme_5"]        * WEIGHTS["forme_5"]        / individual_weight
-        )
-    avg_player_score = sum(player_score(s) for s in valid_stats) / len(valid_stats) if valid_stats else 0.50
+    # DB-backed
+    champ_stats = _load_champion_stats()
+    synergies   = _load_synergies()
 
-    champ_names = [p.get("championName") for p in team]
-    draft       = _draft_score(champ_names)
+    champ_score, champ_detail   = _champion_strength(team, champ_stats)
+    syn_score,   syn_pairs      = _synergy_strength(team, synergies)
+    meta_score                  = _meta_strength(team, champ_stats)
 
     score = (
-        avg_player_score * (WEIGHTS["winrate_global"] + WEIGHTS["winrate_champ"] + WEIGHTS["forme_5"])
-        + wr_team_mean   * WEIGHTS["winrate_team"]
-        + draft          * WEIGHTS["draft"]
+        avg_player    * WEIGHTS["player"]
+        + champ_score  * WEIGHTS["champion"]
+        + syn_score    * WEIGHTS["synergy"]
+        + meta_score   * WEIGHTS["meta"]
     )
-    return _clamp(score, 0.20, 0.80), player_details
+    # Amplification de l'écart au centre puis clamp
+    score = 0.50 + (score - 0.50) * SPREAD_GAIN
+    score = _clamp(score, 0.10, 0.90)
+
+    detail = {
+        "score_total":       round(score, 3),
+        "player_strength":   round(avg_player, 3),
+        "champion_strength": round(champ_score, 3),
+        "synergy_strength":  round(syn_score, 3),
+        "meta_strength":     round(meta_score, 3),
+        "synergy_pairs":     syn_pairs,
+        "champ_winrates":    champ_detail,
+        "players":           players_detail,
+        "db_loaded": {
+            "champion_stats": champ_stats is not None,
+            "synergies":      synergies is not None,
+        },
+    }
+    return score, detail
 
 
 async def _default_stats_coro() -> dict:
@@ -270,66 +323,132 @@ def _default_stats_dict() -> dict:
     return {"winrate_global": 0.50, "winrate_champ": 0.50, "forme_5": 0.50, "n_games": 0, "n_games_champ": 0}
 
 
-async def compute_jungle_gap_odds(blue_team: list[dict], red_team: list[dict], region: str = "EUW") -> dict:
-    from services.riot_stats import get_player_stats
+# ──────────────────────────────────────────────────────────────
+# JUNGLE GAP — nouvelle formule basée sur DB
+# ──────────────────────────────────────────────────────────────
 
-    def find_jungler(team: list[dict]) -> dict | None:
+async def compute_jungle_gap_odds(
+    blue_team: list[dict],
+    red_team:  list[dict],
+    region:    str = "EUW",
+) -> dict:
+    """
+    Score jungler =
+        0.30  winrate_global du joueur
+      + 0.25  winrate_champ du joueur (sur le champ joué)
+      + 0.15  forme_5
+      + 0.20  winrate du champion en JUNGLE (ChampionStats DB)
+      + 0.10  synergie JG ↔ MID de la même équipe (ChampionSynergy DB)
+
+    La synergie JG-MID est un signal très fort en LoL (gank coordonnés,
+    early roams type Lee Sin + Sylas, Nidalee + Akali...).
+    """
+    def find_role(team: list[dict], target: str) -> dict | None:
         for p in team:
-            if (p.get("role") or "").upper() == "JUNGLE":
+            if (p.get("role") or "").upper() == target:
                 return p
-        for p in team:
-            if 11 in {p.get("spell1Id"), p.get("spell2Id")}:
-                return p
-        return team[1] if len(team) > 1 else None
+        if target == "JUNGLE":
+            for p in team:
+                if 11 in {p.get("spell1Id"), p.get("spell2Id")}:
+                    return p
+        return None
 
-    jg_blue = find_jungler(blue_team)
-    jg_red  = find_jungler(red_team)
+    jg_blue,  jg_red  = find_role(blue_team, "JUNGLE"), find_role(red_team, "JUNGLE")
+    mid_blue, mid_red = find_role(blue_team, "MID"),    find_role(red_team, "MID")
 
-    async def get_score(player: dict | None) -> float:
-        if not player or not player.get("puuid"):
-            return 0.50
+    champ_stats = _load_champion_stats()
+    synergies   = _load_synergies()
+
+    async def jg_score(jg: dict | None, mid: dict | None) -> tuple[float, dict]:
+        if not jg or not jg.get("puuid"):
+            return 0.50, {"reason": "no_jungler_found"}
+
         try:
             stats = await asyncio.wait_for(
-                get_player_stats(player["puuid"], region, player.get("championName")),
+                get_player_stats(jg["puuid"], region, jg.get("championName")),
                 timeout=8.0,
             )
-            return (
-                stats["winrate_global"] * 0.40
-                + stats["winrate_champ"]  * 0.35
-                + stats["forme_5"]        * 0.25
-            )
         except Exception:
-            return 0.50
+            stats = _default_stats_dict()
 
-    score_blue, score_red = await asyncio.gather(get_score(jg_blue), get_score(jg_red))
+        player_part = (
+            stats["winrate_global"] * 0.30
+            + stats["winrate_champ"] * 0.25
+            + stats["forme_5"]       * 0.15
+        )
 
-    # Polarisation modérée pour le jungle gap
-    s_blue = max(score_blue, 0.01) ** 2.5
-    s_red  = max(score_red,  0.01) ** 2.5
+        # Winrate du champion en JUNGLE
+        jg_champ = jg.get("championName") or ""
+        champ_wr = 0.50
+        if champ_stats:
+            entry = champ_stats.get((jg_champ, "JUNGLE"))
+            if entry:
+                champ_wr = entry["winrate"]
+
+        # Synergie JG ↔ MID (signal fort)
+        synergy_norm = 0.50
+        synergy_raw  = 0.0
+        if mid and mid.get("championName") and synergies:
+            pair = frozenset({jg_champ, mid["championName"]})
+            synergy_raw = synergies.get(pair, 0.0)
+            # synergy_score ∈ [0.02, 0.10] généralement → mapping vers [0.50, 0.80]
+            synergy_norm = _clamp(0.50 + synergy_raw * 3.0, 0.30, 0.80)
+
+        score = player_part + champ_wr * 0.20 + synergy_norm * 0.10
+
+        return score, {
+            "jungler":         f"{jg.get('summonerName','?')} ({jg_champ})",
+            "mid_laner":       f"{mid.get('summonerName','?')} ({mid.get('championName','?')})" if mid else None,
+            "winrate_global":  round(stats["winrate_global"], 3),
+            "winrate_champ":   round(stats["winrate_champ"], 3),
+            "forme_5":         round(stats["forme_5"], 3),
+            "champ_wr_jungle": round(champ_wr, 3),
+            "synergy_jg_mid":  round(synergy_raw, 3),
+            "score_total":     round(score, 3),
+        }
+
+    (sb, db_), (sr, dr_) = await asyncio.gather(
+        jg_score(jg_blue, mid_blue),
+        jg_score(jg_red,  mid_red),
+    )
+
+    # Polarisation forte sur le jungle gap
+    s_blue = max(sb, 0.01) ** 3.5
+    s_red  = max(sr, 0.01) ** 3.5
     total  = s_blue + s_red
-    prob_blue = _clamp(s_blue / total, 0.15, 0.85) if total > 0 else 0.50
+    prob_blue = _clamp(s_blue / total, 0.10, 0.90) if total > 0 else 0.50
     prob_red  = 1.0 - prob_blue
 
-    odds_blue = round(_clamp((1.0 / prob_blue) * 0.90, 1.20, 6.00), 2)
-    odds_red  = round(_clamp((1.0 / prob_red)  * 0.90, 1.20, 6.00), 2)
+    odds_blue = round(_clamp((1.0 / prob_blue) * 0.90, 1.15, 8.00), 2)
+    odds_red  = round(_clamp((1.0 / prob_red)  * 0.90, 1.15, 8.00), 2)
 
-    return {"blue": odds_blue, "red": odds_red}
+    logger.info(
+        f"🌿 jungle_gap → blue={sb:.3f} ({db_.get('jungler')}) vs "
+        f"red={sr:.3f} ({dr_.get('jungler')}) → odds {odds_blue}/{odds_red}"
+    )
+
+    return {
+        "blue":        odds_blue,
+        "red":         odds_red,
+        "detail_blue": db_,
+        "detail_red":  dr_,
+    }
 
 
-async def compute_live_odds(blue_team: list[dict], red_team: list[dict], region: str = "EUW") -> dict:
-    """
-    Point d'entrée principal — calcule toutes les côtes pour une game live.
-    Polarisation par exposant pour donner des cotes "vraies" sur des matchups inégaux.
-    """
+# ──────────────────────────────────────────────────────────────
+# COMPUTE LIVE ODDS — POINT D'ENTRÉE
+# ──────────────────────────────────────────────────────────────
+
+async def compute_live_odds(
+    blue_team: list[dict],
+    red_team:  list[dict],
+    region:    str = "EUW",
+) -> dict:
     (score_blue, detail_blue), (score_red, detail_red) = await asyncio.gather(
         _team_score(blue_team, region),
         _team_score(red_team,  region),
     )
 
-    # ── POLARISATION : exposant sur les scores ───────────────
-    # score_blue / score_red sont dans [0.20, 0.80]. Avec EXPONENT=3.5 :
-    #   - 0.55 vs 0.45 → 0.094 vs 0.061 → prob 60.7% (avant : 55%)
-    #   - 0.65 vs 0.35 → 0.176 vs 0.027 → prob 86.8% (avant : 65%)
     s_blue = max(score_blue, 0.01) ** EXPONENT
     s_red  = max(score_red,  0.01) ** EXPONENT
     total  = s_blue + s_red
@@ -344,26 +463,24 @@ async def compute_live_odds(blue_team: list[dict], red_team: list[dict], region:
 
     def obj_odds(base: float, favor: float, side: str) -> float:
         adj = -favor if side == "blue" else favor
-        return round(_clamp(base * (1 + adj * 0.30), 1.30, base * 1.5), 2)
+        return round(_clamp(base * (1 + adj * 0.50), 1.15, base * 2.0), 2)
 
-    # Jungle gap — passe par compute_jungle_gap_odds (polarisation séparée)
     try:
         jg_odds = await asyncio.wait_for(
             compute_jungle_gap_odds(blue_team, red_team, region),
             timeout=10.0,
         )
     except Exception as e:
-        logger.warning(f"jungle_gap odds failed: {e}, fallback fixed")
-        jg_odds = {"blue": 2.0, "red": 2.0}
+        logger.warning(f"jungle_gap failed ({e}), fallback fixed")
+        jg_odds = {"blue": 2.0, "red": 2.0, "detail_blue": {}, "detail_red": {}}
 
     logger.info(
         f"📊 compute_live_odds → score_blue={score_blue:.3f} score_red={score_red:.3f} "
-        f"| ^{EXPONENT} → prob_blue={prob_blue:.3f} | "
-        f"odds: blue={odds_blue} red={odds_red}"
+        f"| ^{EXPONENT} → prob_blue={prob_blue:.3f} | odds {odds_blue}/{odds_red}"
     )
 
     return {
-        "who_wins": {"blue": odds_blue, "red": odds_red},
+        "who_wins":              {"blue": odds_blue, "red": odds_red},
         "first_blood":           {"odds": FIXED_ODDS["first_blood"]},
         "first_tower":           {"blue": obj_odds(FIXED_ODDS["first_tower"],  favor_blue, "blue"),
                                   "red":  obj_odds(FIXED_ODDS["first_tower"],  favor_blue, "red")},
@@ -381,10 +498,14 @@ async def compute_live_odds(blue_team: list[dict], red_team: list[dict], region:
         "top_damage":            {"odds": FIXED_ODDS["top_damage"]},
         "jungle_gap":            {"blue": jg_odds["blue"], "red": jg_odds["red"]},
 
-        "score_blue": round(score_blue, 3),
-        "score_red":  round(score_red,  3),
-        "prob_blue":  round(prob_blue, 3),
-        "prob_red":   round(prob_red,  3),
+        "score_blue":  round(score_blue, 3),
+        "score_red":   round(score_red,  3),
+        "prob_blue":   round(prob_blue, 3),
+        "prob_red":    round(prob_red,  3),
         "detail_blue": detail_blue,
         "detail_red":  detail_red,
+        "jungle_gap_detail": {
+            "blue": jg_odds.get("detail_blue", {}),
+            "red":  jg_odds.get("detail_red",  {}),
+        },
     }
