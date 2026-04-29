@@ -150,6 +150,7 @@ async def _collect_for_region(region: str) -> tuple[dict, dict]:
 
         for team_id, team_players in teams.items():
             team_kills = sum(p.get("kills", 0) for p in team_players)
+            team_total_dmg = sum(p.get("totalDamageDealtToChampions", 0) for p in team_players)
 
             for p in team_players:
                 champ = p.get("championName", "")
@@ -162,15 +163,18 @@ async def _collect_for_region(region: str) -> tuple[dict, dict]:
                 deaths  = p.get("deaths",  0)
                 assists = p.get("assists", 0)
                 win     = bool(p.get("win", False))
+                dmg     = p.get("totalDamageDealtToChampions", 0)
 
-                kda = (kills + assists) / max(deaths, 1)
-                kp  = (kills + assists) / max(team_kills, 1)
+                kda        = (kills + assists) / max(deaths, 1)
+                kp         = (kills + assists) / max(team_kills, 1)
+                dmg_share  = dmg / max(team_total_dmg, 1)
 
                 key = (champ, lane)
-                champion_data[key]["total"]   += 1
-                champion_data[key]["wins"]    += int(win)
-                champion_data[key]["kda_sum"] += kda
-                champion_data[key]["kp_sum"]  += kp
+                champion_data[key]["total"]         += 1
+                champion_data[key]["wins"]          += int(win)
+                champion_data[key]["kda_sum"]       += kda
+                champion_data[key]["kp_sum"]        += kp
+                champion_data[key]["dmg_share_sum"] += dmg_share
 
             # Synergies : toutes les paires de champions de cette équipe
             for i in range(len(team_players)):
@@ -202,10 +206,11 @@ def _persist_champion_stats(
         if data["total"] < MIN_GAMES_PER_CHAMP:
             continue
 
-        winrate  = data["wins"] / data["total"]
-        avg_kda  = data["kda_sum"] / data["total"]
-        avg_kp   = data["kp_sum"]  / data["total"]
-        pickrate = data["total"] / max(total_games_by_lane[lane] / 5, 1)  # /5 car 1 lane par team
+        winrate       = data["wins"] / data["total"]
+        avg_kda       = data["kda_sum"]       / data["total"]
+        avg_kp        = data["kp_sum"]        / data["total"]
+        avg_dmg_share = data["dmg_share_sum"] / data["total"]
+        pickrate      = data["total"] / max(total_games_by_lane[lane] / 5, 1)  # /5 car 1 lane par team
 
         existing = db.query(ChampionStats).filter(
             ChampionStats.champion == champ,
@@ -215,24 +220,26 @@ def _persist_champion_stats(
         ).first()
 
         if existing:
-            existing.n_games  = data["total"]
-            existing.wins     = data["wins"]
-            existing.winrate  = round(winrate, 4)
-            existing.pickrate = round(pickrate, 4)
-            existing.avg_kda  = round(avg_kda, 3)
-            existing.avg_kp   = round(avg_kp, 3)
+            existing.n_games       = data["total"]
+            existing.wins          = data["wins"]
+            existing.winrate       = round(winrate, 4)
+            existing.pickrate      = round(pickrate, 4)
+            existing.avg_kda       = round(avg_kda, 3)
+            existing.avg_kp        = round(avg_kp, 3)
+            existing.avg_dmg_share = round(avg_dmg_share, 3)
         else:
             db.add(ChampionStats(
-                champion = champ,
-                tier     = "MASTER",
-                lane     = lane,
-                region   = region,
-                n_games  = data["total"],
-                wins     = data["wins"],
-                winrate  = round(winrate, 4),
-                pickrate = round(pickrate, 4),
-                avg_kda  = round(avg_kda, 3),
-                avg_kp   = round(avg_kp, 3),
+                champion      = champ,
+                tier          = "MASTER",
+                lane          = lane,
+                region        = region,
+                n_games       = data["total"],
+                wins          = data["wins"],
+                winrate       = round(winrate, 4),
+                pickrate      = round(pickrate, 4),
+                avg_kda       = round(avg_kda, 3),
+                avg_kp        = round(avg_kp, 3),
+                avg_dmg_share = round(avg_dmg_share, 3),
             ))
         written += 1
 

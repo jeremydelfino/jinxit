@@ -28,6 +28,8 @@ class ChampionStats(Base):
 
     updated_at  = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 
+    avg_dmg_share = Column(Float, default=0.20)        # part des dégâts de l'équipe (0.0–1.0)
+
     __table_args__ = (
         UniqueConstraint("champion", "tier", "lane", "region", name="uq_champ_stats"),
         Index("idx_champ_stats_lookup", "champion", "tier", "region"),
