@@ -1357,6 +1357,90 @@ async def trigger_sync_photos():
     await sync_photos_to_pro_players()
     return {"success": True}
 
+@router.post("/admin/sync-team-full/{team_identifier}", include_in_schema=False)
+async def sync_team_full(team_identifier: str, db: Session = Depends(get_db)):
+    """
+    Sync complète d'une équipe à partir de son code, slug ou api_id (présents dans esports_teams).
+    Pipeline :
+      1. Retrouve l'EsportsTeam en DB (par code, slug ou api_id)
+      2. Sync roster depuis l'API LolEsports (joueurs + photos)
+      3. Cascade vers ProPlayer (photo, logo, accent_color)
+      4. Tente de résoudre les riot_puuid manquants via Riot Account-V1 (si summoner_name dispose d'un tag)
+    Retourne un résumé du sync.
+    """
+    from services.esports_sync import sync_team, sync_photos_to_pro_players
+    from services.riot import get_account_by_riot_id
+    from models.esports_team import EsportsTeam
+    from models.esports_player import EsportsPlayer
+    from models.pro_player import ProPlayer
+
+    # ── 1. Retrouver l'équipe (par code, slug, ou api_id) ──────────────
+    ident = team_identifier.strip()
+    et = (
+        db.query(EsportsTeam).filter(EsportsTeam.code == ident.upper()).first()
+        or db.query(EsportsTeam).filter(EsportsTeam.slug == ident.lower()).first()
+        or db.query(EsportsTeam).filter(EsportsTeam.api_id == ident).first()
+    )
+    if not et:
+        raise HTTPException(404, f"Équipe introuvable (essayé code/slug/api_id = {ident})")
+
+    if not et.slug:
+        raise HTTPException(400, f"L'équipe {et.code} n'a pas de slug — impossible d'appeler getTeams")
+
+    region = et.region or "LEC"
+    summary = {"team_code": et.code, "team_name": et.name, "region": region}
+
+    # ── 2. Sync roster + photos via getTeams ───────────────────────────
+    try:
+        synced = await sync_team(et.slug, region, db)
+        summary["players_synced"] = synced
+    except Exception as e:
+        raise HTTPException(500, f"Erreur sync_team({et.slug}): {e}")
+
+    # ── 3. Tentative de résolution riot_puuid manquants ────────────────
+    # Pour chaque EsportsPlayer de cette team sans riot_puuid, on essaie
+    # via Riot Account-V1 si le summoner_name contient un # (game_name#tag)
+    eps = db.query(EsportsPlayer).filter(
+        EsportsPlayer.team_code == et.code,
+        EsportsPlayer.riot_puuid.is_(None),
+    ).all()
+
+    resolved, failed = 0, []
+    for ep in eps:
+        sn = (ep.summoner_name or "").strip()
+        if "#" not in sn:
+            failed.append({"player": sn, "reason": "no_tag"})
+            continue
+        try:
+            game_name, tag = sn.split("#", 1)
+            account = await get_account_by_riot_id(game_name.strip(), tag.strip(), region)
+            puuid = account.get("puuid")
+            if not puuid:
+                failed.append({"player": sn, "reason": "no_puuid_returned"})
+                continue
+            # Évite collision
+            dup = db.query(EsportsPlayer).filter(
+                EsportsPlayer.riot_puuid == puuid,
+                EsportsPlayer.id != ep.id,
+            ).first()
+            if dup:
+                failed.append({"player": sn, "reason": f"puuid_already_used_by_{dup.summoner_name}"})
+                continue
+            ep.riot_puuid = puuid
+            resolved += 1
+        except Exception as e:
+            failed.append({"player": sn, "reason": str(e)[:80]})
+
+    db.commit()
+    summary["puuid_resolved"] = resolved
+    summary["puuid_failed"]   = failed
+
+    # ── 4. Cascade photos/logos vers ProPlayer ─────────────────────────
+    await sync_photos_to_pro_players()
+    summary["photos_synced"] = "ok"
+
+    return {"success": True, **summary}
+
 @router.post("/admin/sync-team-by-code/{team_code}", include_in_schema=False)
 async def sync_team_by_code(team_code: str, db: Session = Depends(get_db)):
     from services.esports_sync import _upsert_team_from_standings
@@ -1669,3 +1753,35 @@ async def debug_completed_split2():
             "types": [ev.get("type") for ev in events],
             "first_event": events[0] if events else None,
         }
+
+@router.post("/admin/sync-team/{team_identifier}", include_in_schema=False)
+async def sync_team_endpoint(team_identifier: str, db: Session = Depends(get_db)):
+    """
+    Sync UNE équipe par code, slug ou api_id.
+    Ex: POST /esports/admin/sync-team/T1
+        POST /esports/admin/sync-team/t1-academy
+    """
+    from services.esports_sync import sync_one_team_full
+    from models.esports_team import EsportsTeam
+
+    ident = team_identifier.strip()
+    et = (
+        db.query(EsportsTeam).filter(EsportsTeam.code == ident.upper()).first()
+        or db.query(EsportsTeam).filter(EsportsTeam.slug == ident.lower()).first()
+        or db.query(EsportsTeam).filter(EsportsTeam.api_id == ident).first()
+    )
+    if not et:
+        raise HTTPException(404, f"Équipe introuvable : {ident}")
+
+    summary = await sync_one_team_full(et, db)
+    return {"success": not summary.get("errors"), **summary}
+
+
+@router.post("/admin/sync-all-teams", include_in_schema=False)
+async def sync_all_teams_endpoint():
+    """
+    Trigger manuel du sync hebdo : toutes les équipes en DB.
+    Asynchrone côté API — peut prendre 1-3 min selon le nombre d'équipes.
+    """
+    from services.esports_sync import sync_all_teams_from_db
+    return await sync_all_teams_from_db()

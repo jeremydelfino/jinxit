@@ -9,8 +9,29 @@ from services import lolesports
 
 logger = logging.getLogger(__name__)
 
+CODE_TO_SLUG = {
+    "TH": "team-heretics-lec",
+    "GX": "giantx-lec",
+    "MKOI": "mad-lions",
+    "SHFT": "team-bds",
+    "DNS": "kwangdong-freecs",
+    "BRO": "fredit-brion",
+    "BFX": "fearx",
+    "DK": "dwg-kia",
+    "AL": "anyones-legend",
+    "JDG": "jd-gaming",
+    "TES": "top-esports", # (ou op-esports selon l'humeur de l'API Riot)
+    "IG": "invictus-gaming",
+    "NIP": "ninjas-in-pyjamas", # (et pas shenzen-ninjas...)
+    "WE": "team-we",
+    "TT": "thunder-talk-gaming",
+    "OMG": "oh-my-god",
+    "LGD": "lgd-gaming",
+    "UP": "ultra-prime"
+}
+
 TEAM_COLORS = {
-    "T1":   "#b8952a", "GEN":  "#c89b3c", "HLE":  "#e03030", "KT":   "#e03030",
+    "T1":   "#c89b3c", "GEN":  "#b8952a", "HLE":  "#e03030", "KT":   "#e03030",
     "DK":   "#00b4d8", "NS":   "#e04040", "KRX":  "#3a7bd5", "BRO":  "#9b59b6",
     "DNS":  "#6b7280", "BFX":  "#9b59b6",
     "G2":   "#ff6b35", "FNC":  "#ff7d00", "KC":   "#0099ff", "MKOI": "#00c896",
@@ -191,11 +212,16 @@ async def sync_all_teams():
         logger.info(f"[sync] {len(seen_codes)} équipes à syncer depuis standings")
 
         for code, stats in seen_codes.items():
-            # On essaie d'abord le slug lowercase du code, puis quelques variantes
-            slug_candidates = [
-                code.lower(),
-                code.lower().replace(" ", "-"),
-            ]
+            # On utilise le mapping exact si on l'a, sinon on fallback sur le code.lower()
+            exact_slug = CODE_TO_SLUG.get(code)
+            
+            if exact_slug:
+                slug_candidates = [exact_slug]
+            else:
+                slug_candidates = [
+                    code.lower(),
+                    code.lower().replace(" ", "-"),
+                ]
 
             synced = False
             for slug in slug_candidates:
@@ -410,3 +436,190 @@ async def sync_photos_to_pro_players():
         db.rollback()
     finally:
         db.close()
+
+# ──────────────────────────────────────────────────────────────
+# SYNC HEBDOMADAIRE COMPLET
+# ──────────────────────────────────────────────────────────────
+
+async def sync_one_team_full(et: "EsportsTeam", db: Session) -> dict:
+    """
+    Sync complet d'UNE équipe :
+      1. Fetch roster API
+      2. Désactive les joueurs DB qui ne sont plus dans le roster
+      3. Upsert les joueurs du roster
+      4. Cascade ProPlayer (photos, logo, accent)
+      5. Tente de résoudre les puuid manquants si summoner_name a un tag
+    Retourne un résumé { team_code, players_kept, players_deactivated, puuid_resolved, errors }
+    """
+    from services.riot import get_account_by_riot_id
+
+    summary = {
+        "team_code":           et.code,
+        "team_name":           et.name,
+        "slug":                et.slug,
+        "players_added":       0,
+        "players_updated":     0,
+        "players_deactivated": [],
+        "puuid_resolved":      0,
+        "errors":              [],
+    }
+
+    if not et.slug:
+        summary["errors"].append("no_slug")
+        return summary
+
+    # ── 1. Fetch roster API ──────────────────────────────────
+    try:
+        data  = await get_teams_by_slug(et.slug)
+        teams = data.get("data", {}).get("teams", [])
+        if not teams:
+            summary["errors"].append("api_returned_empty")
+            return summary
+        team_data = teams[0]
+    except Exception as e:
+        summary["errors"].append(f"api_error: {str(e)[:100]}")
+        return summary
+
+    # ── Vérifier que le code API correspond bien au code DB ──
+    api_code = (team_data.get("code") or "").upper()
+    if api_code and api_code != et.code:
+        # Cas Academy : l'API peut retourner un code différent ; on garde le code DB
+        logger.warning(f"[sync] {et.code}: code API ≠ code DB ({api_code} vs {et.code}) — on garde {et.code}")
+
+    api_players  = team_data.get("players", [])
+    api_puuid_or_name = set()  # tracking des joueurs vus dans l'API
+    api_api_ids  = {p.get("id") for p in api_players if p.get("id")}
+
+    # ── 2. Désactivation des joueurs absents du roster ───────
+    db_players = db.query(EsportsPlayer).filter(
+        EsportsPlayer.team_code == et.code
+    ).all()
+    for ep in db_players:
+        if ep.api_id not in api_api_ids:
+            # Plus dans le roster API → on désactive (pas de DELETE pour préserver les FK)
+            if ep.is_starter is not False:
+                ep.is_starter = False
+            summary["players_deactivated"].append(ep.summoner_name or ep.api_id)
+
+    # ── 3. Upsert depuis l'API ───────────────────────────────
+    region   = et.region or "LEC"
+    logo_url = team_data.get("image", "") or et.logo_url
+
+    for p in api_players:
+        p_id       = p.get("id", "")
+        summoner   = p.get("summonerName", "") or p.get("name", "")
+        first      = p.get("firstName", "")
+        last       = p.get("lastName", "")
+        role_raw   = p.get("role", "")
+        photo      = p.get("image", "") or ""
+        is_starter = p.get("isStarter", True)
+        role       = _map_role(role_raw)
+        is_default_photo = "default-headshot" in photo
+
+        ep = db.query(EsportsPlayer).filter(EsportsPlayer.api_id == p_id).first()
+        if ep:
+            ep.summoner_name = summoner
+            ep.first_name    = first
+            ep.last_name     = last
+            ep.role          = role
+            ep.team_code     = et.code           # ← FORCE le code DB (gestion Academy)
+            ep.team_name     = et.name
+            ep.region        = region
+            ep.is_starter    = is_starter
+            if not is_default_photo and photo:
+                ep.photo_url = photo
+            summary["players_updated"] += 1
+        else:
+            ep = EsportsPlayer(
+                api_id        = p_id,
+                summoner_name = summoner,
+                first_name    = first,
+                last_name     = last,
+                role          = role,
+                photo_url     = None if is_default_photo else photo,
+                team_code     = et.code,
+                team_name     = et.name,
+                region        = region,
+                is_starter    = is_starter,
+            )
+            db.add(ep)
+            summary["players_added"] += 1
+
+        # ── 5. Résolution puuid si possible ──────────────────
+        if not ep.riot_puuid and "#" in (summoner or ""):
+            try:
+                game_name, tag = summoner.split("#", 1)
+                account = await get_account_by_riot_id(game_name.strip(), tag.strip(), region)
+                puuid   = account.get("puuid")
+                if puuid:
+                    dup = db.query(EsportsPlayer).filter(
+                        EsportsPlayer.riot_puuid == puuid,
+                        EsportsPlayer.api_id     != p_id,
+                    ).first()
+                    if not dup:
+                        ep.riot_puuid = puuid
+                        summary["puuid_resolved"] += 1
+            except Exception as e:
+                summary["errors"].append(f"puuid_{summoner}: {str(e)[:60]}")
+
+        # ── 4. Cascade ProPlayer ─────────────────────────────
+        if ep.riot_puuid:
+            pro = db.query(ProPlayer).filter(ProPlayer.riot_puuid == ep.riot_puuid).first()
+            if pro:
+                if not is_default_photo and photo:
+                    pro.photo_url = photo
+                pro.team          = et.code
+                pro.role          = role
+                pro.region        = region
+                pro.accent_color  = TEAM_COLORS.get(et.code, pro.accent_color or "#00e5ff")
+                pro.team_logo_url = logo_url
+
+    # ── Update logo équipe si récupéré ───────────────────────
+    if logo_url and not et.logo_url:
+        et.logo_url = logo_url
+
+    db.commit()
+    logger.info(
+        f"[sync] ✅ {et.code}: +{summary['players_added']} ~{summary['players_updated']} "
+        f"−{len(summary['players_deactivated'])} puuid+{summary['puuid_resolved']}"
+    )
+    return summary
+
+
+async def sync_all_teams_from_db() -> dict:
+    """
+    Job hebdomadaire : sync TOUTES les équipes présentes dans esports_teams.
+    Pour chacune : roster, désactivation des anciens joueurs, photos, cascade ProPlayer.
+    """
+    db = SessionLocal()
+    results = {"total": 0, "ok": 0, "failed": [], "details": []}
+
+    try:
+        teams = db.query(EsportsTeam).filter(EsportsTeam.slug.isnot(None)).all()
+        results["total"] = len(teams)
+        logger.info(f"[sync] 🔄 Démarrage sync hebdo — {len(teams)} équipes en DB")
+
+        for et in teams:
+            try:
+                summary = await sync_one_team_full(et, db)
+                if summary.get("errors"):
+                    results["failed"].append({"code": et.code, "errors": summary["errors"]})
+                else:
+                    results["ok"] += 1
+                results["details"].append(summary)
+            except Exception as e:
+                logger.error(f"[sync] ❌ {et.code}: {e}", exc_info=True)
+                results["failed"].append({"code": et.code, "errors": [str(e)[:100]]})
+            # Petit throttle pour ne pas hammer l'API
+            await asyncio.sleep(0.5)
+
+        # Cascade photos finale
+        await sync_photos_to_pro_players()
+        logger.info(f"[sync] ✅ Sync hebdo terminée — {results['ok']}/{results['total']} OK")
+
+    except Exception as e:
+        logger.error(f"[sync] ❌ Erreur globale: {e}", exc_info=True)
+    finally:
+        db.close()
+
+    return results
