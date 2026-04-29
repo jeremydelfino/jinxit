@@ -17,6 +17,7 @@ from database import SessionLocal
 from models.champion_stats import ChampionStats
 from models.champion_synergy import ChampionSynergy
 from services.riot_stats import get_player_stats
+from services.riot_limiter import riot_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -269,10 +270,12 @@ async def _team_score(team: list[dict], region: str) -> tuple[float, dict]:
             "summonerName":   p.get("summonerName", ""),
             "championName":   p.get("championName", ""),
             "role":           p.get("role", ""),
+            "puuid":          (p.get("puuid") or "")[:16],
             "winrate_global": stats["winrate_global"],
             "winrate_champ":  stats["winrate_champ"],
             "forme_5":        stats["forme_5"],
             "n_games":        stats["n_games"],
+            "stats_error":    stats.get("error"),
         })
 
     avg_player = (
@@ -312,6 +315,9 @@ async def _team_score(team: list[dict], region: str) -> tuple[float, dict]:
             "synergies":      synergies is not None,
         },
     }
+
+    n_loaded = sum(1 for s in valid_stats if s["n_games"] > 0)
+    logger.info(f"   📊 _team_score: {n_loaded}/{len(valid_stats)} joueurs avec stats réelles")
     return score, detail
 
 
