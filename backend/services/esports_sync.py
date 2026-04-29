@@ -623,3 +623,187 @@ async def sync_all_teams_from_db() -> dict:
         db.close()
 
     return results
+
+# ──────────────────────────────────────────────────────────────
+# SYNC LEAGUEPEDIA (source primaire)
+# ──────────────────────────────────────────────────────────────
+
+LEAGUEPEDIA_ROLE_MAP = {
+    "Top":     "TOP",
+    "Jungle":  "JUNGLE",
+    "Mid":     "MID",
+    "Bot":     "ADC",
+    "ADC":     "ADC",
+    "Support": "SUPPORT",
+}
+
+async def sync_one_team_leaguepedia(et: "EsportsTeam", db: Session) -> dict:
+    """
+    Sync UNE équipe depuis Leaguepedia.
+
+    Pipeline :
+      1. Fetch roster via Cargo API (table Players)
+      2. Désactive les joueurs DB qui ne sont plus dans le roster (is_starter=False)
+      3. Upsert les joueurs actuels par (team_code, summoner_name)
+      4. Cascade vers ProPlayer
+
+    Retourne un résumé.
+    """
+    from services.leaguepedia import get_team_roster, get_player_image_url, get_team_logo_url
+
+    summary = {
+        "team_code":           et.code,
+        "team_name":           et.name,
+        "source":              "leaguepedia",
+        "players_added":       0,
+        "players_updated":     0,
+        "players_deactivated": [],
+        "errors":              [],
+    }
+
+    # ── 1. Fetch roster ──────────────────────────────────────
+    try:
+        roster = await get_team_roster(et.name)
+    except Exception as e:
+        summary["errors"].append(f"api_error: {str(e)[:100]}")
+        return summary
+
+    if not roster:
+        summary["errors"].append(f"no_roster_found_for_{et.name}")
+        return summary
+
+    # Filtrer : seulement les rôles standards (pas Coach, Manager, etc.)
+    roster = [
+        p for p in roster
+        if LEAGUEPEDIA_ROLE_MAP.get(p.get("role", ""))
+    ]
+    if not roster:
+        summary["errors"].append("roster_has_no_players")
+        return summary
+
+    # Set des summoner_names (= ID Leaguepedia) actuels — utilisé pour cleanup
+    api_ids = {p.get("id", "").strip() for p in roster}
+
+    # ── 2. Désactivation des joueurs absents du nouveau roster ──
+    db_players = db.query(EsportsPlayer).filter(EsportsPlayer.team_code == et.code).all()
+    for ep in db_players:
+        if (ep.summoner_name or "").strip() not in api_ids:
+            if ep.is_starter is not False:
+                ep.is_starter = False
+            summary["players_deactivated"].append(ep.summoner_name or "?")
+
+    # ── 3. Upsert des joueurs du roster ──────────────────────
+    region = et.region or ""
+    logo_url = et.logo_url
+    if not logo_url:
+        try:
+            logo_url = await get_team_logo_url(et.name)
+            if logo_url:
+                et.logo_url = logo_url
+        except Exception:
+            pass
+
+    for p in roster:
+        summoner = (p.get("id") or "").strip()
+        if not summoner:
+            continue
+
+        full_name  = (p.get("name") or "").strip()
+        role_raw   = (p.get("role") or "").strip()
+        role       = LEAGUEPEDIA_ROLE_MAP.get(role_raw, "")
+        image_name = (p.get("image") or "").strip()
+        photo_url  = await get_player_image_url(image_name) if image_name else ""
+
+        # Split first/last name (best effort)
+        first, last = "", ""
+        if full_name:
+            parts = full_name.split(" ", 1)
+            first = parts[0]
+            last  = parts[1] if len(parts) > 1 else ""
+
+        # Match par (team_code, summoner_name) — pas d'api_id Leaguepedia stable
+        ep = db.query(EsportsPlayer).filter(
+            EsportsPlayer.team_code     == et.code,
+            EsportsPlayer.summoner_name == summoner,
+        ).first()
+
+        if ep:
+            ep.first_name = first or ep.first_name
+            ep.last_name  = last  or ep.last_name
+            ep.role       = role  or ep.role
+            ep.team_name  = et.name
+            ep.region     = region
+            ep.is_starter = True
+            if photo_url:
+                ep.photo_url = photo_url
+            summary["players_updated"] += 1
+        else:
+            ep = EsportsPlayer(
+                api_id        = "",   # Leaguepedia n'a pas d'ID stable
+                summoner_name = summoner,
+                first_name    = first,
+                last_name     = last,
+                role          = role,
+                photo_url     = photo_url,
+                team_code     = et.code,
+                team_name     = et.name,
+                region        = region,
+                is_starter    = True,
+            )
+            db.add(ep)
+            summary["players_added"] += 1
+
+        # ── 4. Cascade ProPlayer ─────────────────────────────
+        if ep.riot_puuid:
+            pro = db.query(ProPlayer).filter(ProPlayer.riot_puuid == ep.riot_puuid).first()
+            if pro:
+                if photo_url:
+                    pro.photo_url = photo_url
+                pro.team          = et.code
+                pro.role          = role
+                pro.region        = region
+                pro.accent_color  = TEAM_COLORS.get(et.code, pro.accent_color or "#00e5ff")
+                pro.team_logo_url = logo_url
+
+    db.commit()
+    logger.info(
+        f"[lp-sync] ✅ {et.code} ({et.name}): +{summary['players_added']} "
+        f"~{summary['players_updated']} −{len(summary['players_deactivated'])}"
+    )
+    return summary
+
+
+async def sync_all_teams_leaguepedia() -> dict:
+    """
+    Job hebdo : sync TOUTES les équipes esports_teams via Leaguepedia.
+    """
+    db = SessionLocal()
+    results = {"total": 0, "ok": 0, "failed": [], "details": []}
+
+    try:
+        teams = db.query(EsportsTeam).all()
+        results["total"] = len(teams)
+        logger.info(f"[lp-sync] 🔄 Sync Leaguepedia — {len(teams)} équipes")
+
+        for et in teams:
+            try:
+                summary = await sync_one_team_leaguepedia(et, db)
+                if summary.get("errors"):
+                    results["failed"].append({"code": et.code, "name": et.name, "errors": summary["errors"]})
+                else:
+                    results["ok"] += 1
+                results["details"].append(summary)
+            except Exception as e:
+                logger.error(f"[lp-sync] ❌ {et.code}: {e}", exc_info=True)
+                results["failed"].append({"code": et.code, "errors": [str(e)[:100]]})
+            await asyncio.sleep(0.3)  # throttle léger pour respect du wiki
+
+        await sync_photos_to_pro_players()
+        logger.info(f"[lp-sync] ✅ Sync terminé — {results['ok']}/{results['total']} OK")
+
+    except Exception as e:
+        logger.error(f"[lp-sync] ❌ Erreur globale: {e}", exc_info=True)
+    finally:
+        db.close()
+
+    return results

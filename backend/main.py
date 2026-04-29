@@ -35,7 +35,8 @@ from routers.settings import router as settings_router
 from services.esports_sync import sync_all_teams
 from services.champion_winrate_collector import refresh_champion_winrates
 from services.team_form_collector import refresh_team_form
-from services.esports_sync import sync_all_teams_from_db
+from services.esports_sync import sync_all_teams_leaguepedia
+
 
 Base.metadata.create_all(bind=engine)
 
@@ -116,8 +117,9 @@ async def lifespan(app: FastAPI):
         id="refresh_champion_winrates",
     )
 
+
     scheduler.add_job(
-        sync_all_teams_from_db,
+        sync_all_teams_leaguepedia,
         trigger="cron",
         day_of_week="mon",
         hour=4,

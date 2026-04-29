@@ -1785,3 +1785,33 @@ async def sync_all_teams_endpoint():
     """
     from services.esports_sync import sync_all_teams_from_db
     return await sync_all_teams_from_db()
+
+@router.post("/admin/sync-team/{team_identifier}", include_in_schema=False)
+async def sync_team_endpoint(team_identifier: str, db: Session = Depends(get_db)):
+    """
+    Sync UNE équipe via Leaguepedia (par code, slug, name ou api_id).
+    Ex: POST /esports/admin/sync-team/T1
+        POST /esports/admin/sync-team/T1A
+    """
+    from services.esports_sync import sync_one_team_leaguepedia
+    from models.esports_team import EsportsTeam
+
+    ident = team_identifier.strip()
+    et = (
+        db.query(EsportsTeam).filter(EsportsTeam.code == ident.upper()).first()
+        or db.query(EsportsTeam).filter(EsportsTeam.slug == ident.lower()).first()
+        or db.query(EsportsTeam).filter(EsportsTeam.name.ilike(ident)).first()
+        or db.query(EsportsTeam).filter(EsportsTeam.api_id == ident).first()
+    )
+    if not et:
+        raise HTTPException(404, f"Équipe introuvable : {ident}")
+
+    summary = await sync_one_team_leaguepedia(et, db)
+    return {"success": not summary.get("errors"), **summary}
+
+
+@router.post("/admin/sync-all-teams", include_in_schema=False)
+async def sync_all_teams_endpoint():
+    """Trigger manuel du sync hebdo via Leaguepedia."""
+    from services.esports_sync import sync_all_teams_leaguepedia
+    return await sync_all_teams_leaguepedia()
