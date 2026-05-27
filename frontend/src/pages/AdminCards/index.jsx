@@ -14,6 +14,7 @@ const TYPES = [
   { value: 'pro_player', label: 'Joueur Pro' },
   { value: 'meme',       label: 'Mème' },
   { value: 'cosmetic',   label: 'Cosmétique' },
+  { value: 'sticker', label: 'Sticker' },
 ]
 
 const TRIGGER_TYPES = [
@@ -32,12 +33,14 @@ const EMPTY_FORM = {
   boost_type: 'percent_gain', boost_value: '0.15',
   trigger_type: 'champion', trigger_value: '',
   is_banner: false, is_title: false, title_text: '',
+  collection: '',
   hasEffect: true,
 }
 
 export default function AdminCards() {
   const fileRef = useRef(null)
   const [cards,     setCards]     = useState([])
+  const [collections, setCollections] = useState([])
   const [loading,   setLoading]   = useState(true)
   const [form,      setForm]      = useState(EMPTY_FORM)
   const [preview,   setPreview]   = useState(null)
@@ -48,6 +51,11 @@ export default function AdminCards() {
 
   useEffect(() => {
     fetchCards()
+  }, [])
+
+  useEffect(() => {
+    fetchCards()
+    api.get('/admin/collections').then(r => setCollections(r.data)).catch(() => {})  // ← AJOUTER
   }, [])
 
   const fetchCards = () => {
@@ -75,6 +83,7 @@ export default function AdminCards() {
     fd.append('name', form.name)
     fd.append('type', form.type)
     fd.append('rarity', form.rarity)
+    if (form.collection.trim()) fd.append('collection', form.collection.trim())
     fd.append('is_banner', form.is_banner)
     fd.append('is_title', form.is_title)
     if (form.is_title) fd.append('title_text', form.title_text)
@@ -169,6 +178,21 @@ export default function AdminCards() {
                 {RARITIES.map(r => <option key={r.value} value={r.value} style={{ color: r.color }}>{r.label}</option>)}
               </select>
             </div>
+          </div>
+
+          {/* Collection */}
+          <div className="form-group">
+            <label>Collection <span style={{ color: '#374151', textTransform: 'none', letterSpacing: 0, fontStyle: 'italic' }}>(optionnel)</span></label>
+            <input
+              className="form-input"
+              placeholder="ex: LEC 2026, Memes Saison 1..."
+              value={form.collection}
+              onChange={e => f('collection', e.target.value)}
+              list="collections-list"
+            />
+            <datalist id="collections-list">
+              {collections.map(c => <option key={c} value={c} />)}
+            </datalist>
           </div>
 
           {/* Toggle effet */}

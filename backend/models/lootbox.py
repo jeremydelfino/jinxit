@@ -13,7 +13,8 @@ class LootBoxType(Base):
     description     = Column(String(200), nullable=True)
     image_url       = Column(String, nullable=True)
     price_coins     = Column(Integer, nullable=True)              # NULL = pas achetable
-    pool_types      = Column(String(200), nullable=False)         # CSV: "champion,sticker,..."
+    pool_types      = Column(String(200), nullable=False)
+    collection_filter = Column(String(500), nullable=True)  # CSV des collections, NULL = toutes      # CSV: "champion,sticker,..."
     drop_common     = Column(Integer, nullable=False, default=60)
     drop_rare       = Column(Integer, nullable=False, default=25)
     drop_epic       = Column(Integer, nullable=False, default=12)

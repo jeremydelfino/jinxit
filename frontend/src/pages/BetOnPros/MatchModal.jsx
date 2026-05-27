@@ -3,6 +3,7 @@ import useAuthStore from '../../store/auth'
 import api from '../../api/client'
 import './MatchModal.css'
 
+// ─── Constantes ───────────────────────────────────────────────
 const LEAGUE_META = {
   lec:    { label: 'LEC',    color: '#00b4d8' },
   lck:    { label: 'LCK',    color: '#c89b3c' },
@@ -13,11 +14,10 @@ const LEAGUE_META = {
   msi:    { label: 'MSI',    color: '#a855f7' },
 }
 
-const ROLE_ORDER = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT']
-const ROLE_ICONS = { TOP: '🛡️', JUNGLE: '🌿', MID: '⚡', ADC: '🏹', SUPPORT: '💙' }
+const ROLE_ORDER  = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT']
+const ROLE_ICONS  = { TOP: '🛡️', JUNGLE: '🌿', MID: '⚡', ADC: '🏹', SUPPORT: '💙' }
 const ROLE_LABELS = { TOP: 'TOP', JUNGLE: 'JUNGLE', MIDDLE: 'MID', MID: 'MID', BOTTOM: 'ADC', ADC: 'ADC', UTILITY: 'SUPPORT', SUPPORT: 'SUPPORT' }
-
-const SCORE_OPTS = { 3: ['2-0', '2-1'], 5: ['3-0', '3-1', '3-2'], 1: ['1-0'] }
+const SCORE_OPTS  = { 3: ['2-0', '2-1'], 5: ['3-0', '3-1', '3-2'], 1: ['1-0'] }
 
 // ─── Helpers ──────────────────────────────────────────────────
 function normRole(r) { return r ? (ROLE_LABELS[r.toUpperCase()] ?? r.toUpperCase()) : 'FILL' }
@@ -95,14 +95,11 @@ function PlayerCell({ player, side, delay }) {
   )
 }
 
-// Mini radar comparatif des stats équipes (winrate / forme / momentum)
 function StatComparator({ t1, t2, lc }) {
-  // Normalise chaque métrique sur [0, 100]
   const t1WR    = Math.round((t1.season?.winrate ?? 50))
   const t2WR    = Math.round((t2.season?.winrate ?? 50))
   const t1Form  = Math.round((t1.form?.forme_score ?? 0.5) * 100)
   const t2Form  = Math.round((t2.form?.forme_score ?? 0.5) * 100)
-  // Momentum dérivé du streak : streak +5 → 100%, streak -5 → 0%, 0 → 50%
   const t1Mom   = Math.max(0, Math.min(100, 50 + (t1.form?.streak ?? 0) * 10))
   const t2Mom   = Math.max(0, Math.min(100, 50 + (t2.form?.streak ?? 0) * 10))
 
@@ -218,8 +215,8 @@ export default function MatchModal({ matchId, onClose, onBetPlaced }) {
   const t2Roster = sortRoster(t2.roster)
 
   const potentialWin = selection ? Math.floor(amount * selection.odds) : 0
-  const t1Streak = streakInfo(t1.form?.streak ?? 0)
-  const t2Streak = streakInfo(t2.form?.streak ?? 0)
+  const t1Streak  = streakInfo(t1.form?.streak ?? 0)
+  const t2Streak  = streakInfo(t2.form?.streak ?? 0)
   const probT1Pct = Math.round((detail.odds.prob_team1 ?? 0.5) * 100)
   const probT2Pct = 100 - probT1Pct
 
@@ -301,6 +298,51 @@ export default function MatchModal({ matchId, onClose, onBetPlaced }) {
     )
   }
 
+  const renderHandicapTab = () => {
+    const handicaps = detail.side_odds?.handicap || []
+    if (handicaps.length === 0) return <div className="mm-bet-empty">⚖️ Pas de handicap disponible en BO{bo}.</div>
+    return (
+      <div className="mm-handicap-wrap">
+        <div className="mm-handicap-intro">
+          <span className="mm-handicap-intro-ico">💡</span>
+          <span>Un handicap <strong>-1.5</strong> = l'équipe doit gagner avec au moins 2 maps d'écart. <strong>+1.5</strong> = elle ne doit pas perdre par plus de 1 map.</span>
+        </div>
+        {handicaps.map(h => {
+          const isNeg = h.handicap.startsWith('-')
+          return (
+            <div key={h.handicap} className="mm-handicap-block">
+              <div className="mm-handicap-label">
+                <span className={`mm-handicap-tag ${isNeg ? 'neg' : 'pos'}`}>{h.handicap}</span>
+                <span className="mm-handicap-desc">
+                  {isNeg ? `Doit gagner avec ${Math.abs(parseFloat(h.handicap))} map(s) d'avance` : `Ne doit pas perdre par plus de ${parseFloat(h.handicap)} map(s)`}
+                </span>
+              </div>
+              <div className="mm-bet-grid-2 mm-bet-grid-sm">
+                {[
+                  { key: 'team1', team: t1, odds: h.team1, side: 'blue' },
+                  { key: 'team2', team: t2, odds: h.team2, side: 'red' },
+                ].map(opt => {
+                  const betValue = `${opt.key}_${h.handicap}`
+                  const sel = selection?.betType === 'handicap_maps' && selection?.betValue === betValue
+                  return (
+                    <button key={opt.key}
+                      className={`mm-bet-card ${opt.side} mm-bet-card-sm ${sel ? 'selected' : ''}`}
+                      onClick={() => setSelection({ betType: 'handicap_maps', betValue, odds: opt.odds, label: `${opt.team.code} ${h.handicap}` })}>
+                      <img className="mm-bet-card-logo" src={opt.team.image} alt={opt.team.code} referrerPolicy="no-referrer" onError={e => { e.target.style.display = 'none' }} />
+                      <div className="mm-bet-card-code">{opt.team.code} <span className="mm-bet-card-handicap">{h.handicap}</span></div>
+                      <div className="mm-bet-card-odds">×{opt.odds}</div>
+                      {sel && <div className="mm-bet-card-check">✓</div>}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
   const renderMapsTab = () => {
     const totals = detail.side_odds?.total_maps || {}
     const keys   = Object.keys(totals)
@@ -363,6 +405,15 @@ export default function MatchModal({ matchId, onClose, onBetPlaced }) {
       </div>
     )
   }
+
+  // Onglets disponibles selon le format (handicap masqué en BO1)
+  const tabs = [
+    { k: 'winner',   l: 'Vainqueur', i: '🏆', show: true },
+    { k: 'score',    l: 'Score',     i: '🎯', show: bo > 1 },
+    { k: 'handicap', l: 'Handicap',  i: '⚖️', show: bo > 1 },
+    { k: 'maps',     l: 'Maps',      i: '📊', show: bo > 1 },
+    { k: 'mapByMap', l: 'Par map',   i: '🗺️', show: bo > 1 },
+  ].filter(t => t.show)
 
   return (
     <div className="mm-fs">
@@ -542,12 +593,7 @@ export default function MatchModal({ matchId, onClose, onBetPlaced }) {
             </div>
 
             <div className="mm-bet-tabs">
-              {[
-                { k: 'winner',   l: 'Vainqueur', i: '🏆' },
-                { k: 'score',    l: 'Score',     i: '🎯' },
-                { k: 'maps',     l: 'Maps',      i: '📊' },
-                { k: 'mapByMap', l: 'Par map',   i: '🗺️' },
-              ].map(t => (
+              {tabs.map(t => (
                 <button key={t.k}
                   className={`mm-bet-tab ${tab === t.k ? 'active' : ''}`}
                   style={{ '--tc': lc }}
@@ -561,6 +607,7 @@ export default function MatchModal({ matchId, onClose, onBetPlaced }) {
             <div className="mm-bet-content" key={tab}>
               {tab === 'winner'   && renderWinnerTab()}
               {tab === 'score'    && renderScoreTab()}
+              {tab === 'handicap' && renderHandicapTab()}
               {tab === 'maps'     && renderMapsTab()}
               {tab === 'mapByMap' && renderMapByMapTab()}
             </div>

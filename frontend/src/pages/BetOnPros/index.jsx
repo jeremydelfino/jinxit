@@ -5,6 +5,7 @@ import useAuthStore from '../../store/auth'
 import api from '../../api/client'
 import MatchModal from './MatchModal'
 
+// ─── Métadonnées ligues ───────────────────────────────────────
 const LEAGUE_META = {
   lec:    { label: 'LEC',    color: '#00b4d8' },
   lck:    { label: 'LCK',    color: '#c89b3c' },
@@ -15,8 +16,7 @@ const LEAGUE_META = {
   msi:    { label: 'MSI',    color: '#a855f7' },
 }
 
-const SCORE_OPTS = { 3: ['2-0', '2-1'], 5: ['3-0', '3-1', '3-2'], 1: ['1-0'] }
-
+// ─── Helpers ──────────────────────────────────────────────────
 function timeUntil(dateStr) {
   if (!dateStr) return ''
   const diff = new Date(dateStr).getTime() - Date.now()
@@ -28,17 +28,17 @@ function timeUntil(dateStr) {
   return `dans ${m}m`
 }
 
-function getLeaguePriorityBySlug(slug) {
-  const order = { lec: 0, lck: 1, lfl: 2, lcs: 3, lpl: 4, msi: 5, worlds: 6 }
-  return order[slug] ?? 99
-}
-
 function formatDate(dateStr) {
   if (!dateStr) return ''
   return new Date(dateStr).toLocaleDateString('fr-FR', {
     weekday: 'short', day: 'numeric', month: 'short',
     hour: '2-digit', minute: '2-digit',
   })
+}
+
+function getLeaguePriorityBySlug(slug) {
+  const order = { lec: 0, lck: 1, lfl: 2, lcs: 3, lpl: 4, msi: 5, worlds: 6 }
+  return order[slug] ?? 99
 }
 
 function getLeaguePriority(leagueName) {
@@ -61,15 +61,22 @@ function MatchCard({ match, onBet }) {
   const state      = match.state
   const isLive     = state === 'inProgress'
   const isDone     = state === 'completed'
+  const isTbd      = match.is_tbd === true || match.is_playable === false
+  const isLocked   = isDone || isTbd
   const leagueMeta = LEAGUE_META[match.league?.slug?.toLowerCase()] || {}
   const lc         = leagueMeta.color || '#65BD62'
   const t1IsFav    = t1.odds <= t2.odds
 
+  const handleClick = () => {
+    if (isLocked) return
+    onBet(match)
+  }
+
   return (
     <div
-      className={`bop-card ${isLive ? 'is-live' : ''} ${isDone ? 'is-done' : ''}`}
-      onClick={!isDone ? () => onBet(match) : undefined}
-      style={{ cursor: isDone ? 'default' : 'pointer' }}
+      className={`bop-card ${isLive ? 'is-live' : ''} ${isDone ? 'is-done' : ''} ${isTbd ? 'is-tbd' : ''}`}
+      onClick={handleClick}
+      style={{ cursor: isLocked ? 'default' : 'pointer' }}
     >
       <div className="bop-card-accent" style={{ background: isLive ? `linear-gradient(90deg, ${lc}, #65BD62)` : `linear-gradient(90deg, ${lc}60, transparent)` }} />
 
@@ -79,19 +86,23 @@ function MatchCard({ match, onBet }) {
           {match.league?.name}
           {match.block_name && <span className="bop-card-block">· {match.block_name}</span>}
         </div>
-        <div className={`bop-card-status ${isLive ? 'live' : isDone ? 'done' : 'upcoming'}`}>
+        <div className={`bop-card-status ${isTbd ? 'tbd' : isLive ? 'live' : isDone ? 'done' : 'upcoming'}`}>
           {isLive && <span className="bop-card-live-dot" />}
-          {isLive ? 'LIVE' : isDone ? 'Terminé' : timeUntil(match.start_time)}
+          {isTbd ? 'À déterminer' : isLive ? 'LIVE' : isDone ? 'Terminé' : timeUntil(match.start_time)}
         </div>
       </div>
 
       <div className="bop-card-matchup">
         <div className={`bop-card-team ${isDone && t1.outcome === 'win' ? 'won' : ''} ${isDone && t1.outcome === 'loss' ? 'lost' : ''}`}>
           <div className="bop-card-logo">
-            <img src={t1.image} alt={t1.code} referrerPolicy="no-referrer" onError={e => { e.target.style.display = 'none' }} />
+            {t1.image
+              ? <img src={t1.image} alt={t1.code} referrerPolicy="no-referrer" onError={e => { e.target.style.display = 'none' }} />
+              : <div className="bop-card-logo-placeholder">?</div>}
           </div>
-          <div className="bop-card-team-name">{t1.code}</div>
-          {t1.record && <div className="bop-card-record">{t1.record.wins}W · {t1.record.losses}L</div>}
+          <div className="bop-card-team-name">{t1.code || 'TBD'}</div>
+          {t1.record && (t1.record.wins || t1.record.losses) ? (
+            <div className="bop-card-record">{t1.record.wins}W · {t1.record.losses}L</div>
+          ) : null}
         </div>
 
         <div className="bop-card-center">
@@ -111,14 +122,18 @@ function MatchCard({ match, onBet }) {
 
         <div className={`bop-card-team right ${isDone && t2.outcome === 'win' ? 'won' : ''} ${isDone && t2.outcome === 'loss' ? 'lost' : ''}`}>
           <div className="bop-card-logo">
-            <img src={t2.image} alt={t2.code} referrerPolicy="no-referrer" onError={e => { e.target.style.display = 'none' }} />
+            {t2.image
+              ? <img src={t2.image} alt={t2.code} referrerPolicy="no-referrer" onError={e => { e.target.style.display = 'none' }} />
+              : <div className="bop-card-logo-placeholder">?</div>}
           </div>
-          <div className="bop-card-team-name">{t2.code}</div>
-          {t2.record && <div className="bop-card-record">{t2.record.wins}W · {t2.record.losses}L</div>}
+          <div className="bop-card-team-name">{t2.code || 'TBD'}</div>
+          {t2.record && (t2.record.wins || t2.record.losses) ? (
+            <div className="bop-card-record">{t2.record.wins}W · {t2.record.losses}L</div>
+          ) : null}
         </div>
       </div>
 
-      {!isDone && (
+      {!isDone && !isTbd && (
         <div className="bop-card-odds-row">
           <div className={`bop-card-odd ${t1IsFav ? 'fav' : ''}`}>
             <span className="bop-card-odd-code">{t1.code}</span>
@@ -138,6 +153,11 @@ function MatchCard({ match, onBet }) {
         <div className="bop-card-result">
           🏆 {t1.outcome === 'win' ? t1.code : t2.code} remporte le match
           <span className="bop-card-result-score">({t1.wins}—{t2.wins})</span>
+        </div>
+      ) : isTbd ? (
+        <div className="bop-card-tbd-banner">
+          <span className="bop-card-tbd-icon">⏳</span>
+          <span>Équipes pas encore qualifiées</span>
         </div>
       ) : (
         <div className="bop-card-footer">
@@ -159,7 +179,7 @@ export default function BetOnPros() {
   const [matches,      setMatches]      = useState([])
   const [loading,      setLoading]      = useState(true)
   const [leagueFilter, setLeagueFilter] = useState('all')
-  const [stateFilter, setStateFilter] = useState('upcoming')
+  const [stateFilter,  setStateFilter]  = useState('upcoming')
   const [betModal,     setBetModal]     = useState(null)
   const [coins,        setCoins]        = useState(user?.coins || 0)
 
@@ -178,31 +198,36 @@ export default function BetOnPros() {
   }, [user])
 
   const filtered = matches
-  .filter(m => {
-    const leagueOk = leagueFilter === 'all'
-      || m.league_slug === leagueFilter
-      || m.league?.slug?.toLowerCase() === leagueFilter   // ← ajout fallback
+    .filter(m => {
+      const leagueOk = leagueFilter === 'all'
+        || m.league_slug === leagueFilter
+        || m.league?.slug?.toLowerCase() === leagueFilter
 
-    const stateOk =
-      stateFilter === 'all'      ||
-      (stateFilter === 'upcoming' && m.state === 'unstarted') ||
-      (stateFilter === 'live'     && m.state === 'inProgress') ||
-      (stateFilter === 'done'     && m.state === 'completed')
+      const stateOk =
+        stateFilter === 'all'      ||
+        (stateFilter === 'upcoming' && m.state === 'unstarted') ||
+        (stateFilter === 'live'     && m.state === 'inProgress') ||
+        (stateFilter === 'done'     && m.state === 'completed')
 
-    return leagueOk && stateOk
-  })
+      return leagueOk && stateOk
+    })
     .sort((a, b) => {
       // Priorité ligue d'abord
       const leaguePrioA = getLeaguePriorityBySlug(a.league_slug)
       const leaguePrioB = getLeaguePriorityBySlug(b.league_slug)
       if (leaguePrioA !== leaguePrioB) return leaguePrioA - leaguePrioB
-    
+
       // Puis state
       const stateOrder = { inProgress: 0, unstarted: 1, completed: 2 }
       const stateA = stateOrder[a.state] ?? 3
       const stateB = stateOrder[b.state] ?? 3
       if (stateA !== stateB) return stateA - stateB
-    
+
+      // TBD en bas dans les "upcoming"
+      const aTbd = a.is_tbd === true || a.is_playable === false
+      const bTbd = b.is_tbd === true || b.is_playable === false
+      if (aTbd !== bTbd) return aTbd ? 1 : -1
+
       if (a.state === 'unstarted') return new Date(a.start_time || 0) - new Date(b.start_time || 0)
       return new Date(b.start_time || 0) - new Date(a.start_time || 0)
     })
@@ -225,7 +250,7 @@ export default function BetOnPros() {
   }
 
   const liveCount     = matches.filter(m => m.state === 'inProgress').length
-  const upcomingCount = matches.filter(m => m.state === 'unstarted').length
+  const upcomingCount = matches.filter(m => m.state === 'unstarted' && !(m.is_tbd === true || m.is_playable === false)).length
 
   return (
     <div className="bop-page">

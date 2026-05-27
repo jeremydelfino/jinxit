@@ -41,6 +41,7 @@ def my_boxes(
                     "epic":      b.box_type.drop_epic,
                     "legendary": b.box_type.drop_legendary,
                 },
+                "collection_filter": t.collection_filter,
             },
         }
         for b in boxes
@@ -71,6 +72,7 @@ def list_box_types(db: Session = Depends(get_db)):
                 "epic":      t.drop_epic,
                 "legendary": t.drop_legendary,
             },
+            "collection_filter": t.collection_filter,
         }
         for t in types
     ]
@@ -120,45 +122,67 @@ def open_box(
 #  réutiliser la même mécanique que ton AdminRatings/AdminCards)
 
 class CreateBoxTypeSchema(BaseModel):
-    name:          str
-    description:   Optional[str] = None
-    image_url:     Optional[str] = None
-    price_coins:   Optional[int] = None
-    pool_types:    str            # "champion,sticker,..."
+    name:              str
+    description:       Optional[str] = None
+    image_url:         Optional[str] = None
+    price_coins:       Optional[int] = None
+    pool_types:        str
+    collection_filter: Optional[str] = None
     drop_common:    int = 60
     drop_rare:      int = 25
     drop_epic:      int = 12
     drop_legendary: int = 3
 
 
+from fastapi import UploadFile, File, Form
+from services.cloudinary_service import upload_image
+
 @router.post("/admin/types")
-def admin_create_box_type(
-    body: CreateBoxTypeSchema,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+async def admin_create_box_type(
+    name:              str           = Form(...),
+    description:       Optional[str] = Form(None),
+    pool_types:        str           = Form(...),
+    collection_filter: Optional[str] = Form(None),
+    price_coins:       Optional[int] = Form(None),
+    drop_common:       int           = Form(60),
+    drop_rare:         int           = Form(25),
+    drop_epic:         int           = Form(12),
+    drop_legendary:    int           = Form(3),
+    file:              Optional[UploadFile] = File(None),
+    db:                Session       = Depends(get_db),
+    current_user:      User          = Depends(get_current_user),
 ):
     if not getattr(current_user, "is_admin", False):
         raise HTTPException(403, "Admin uniquement")
 
-    total = body.drop_common + body.drop_rare + body.drop_epic + body.drop_legendary
+    total = drop_common + drop_rare + drop_epic + drop_legendary
     if total != 100:
         raise HTTPException(400, f"Drop rates doivent totaliser 100 (actuel: {total})")
 
+    image_url = None
+    if file:
+        if file.content_type not in ["image/jpeg", "image/png", "image/webp"]:
+            raise HTTPException(400, "Format non supporté (jpeg, png, webp)")
+        contents = await file.read()
+        safe_name = name.lower().replace(" ", "_").replace("—", "-")
+        image_url = await upload_image(contents, folder="junglegap/lootboxes", public_id=f"box_{safe_name}")
+
     box_type = LootBoxType(
-        name=body.name,
-        description=body.description,
-        image_url=body.image_url,
-        price_coins=body.price_coins,
-        pool_types=body.pool_types,
-        drop_common=body.drop_common,
-        drop_rare=body.drop_rare,
-        drop_epic=body.drop_epic,
-        drop_legendary=body.drop_legendary,
+        name=name,
+        description=description,
+        image_url=image_url,
+        price_coins=price_coins,
+        pool_types=pool_types,
+        collection_filter=collection_filter,
+        drop_common=drop_common,
+        drop_rare=drop_rare,
+        drop_epic=drop_epic,
+        drop_legendary=drop_legendary,
     )
     db.add(box_type)
     db.commit()
     db.refresh(box_type)
-    return {"success": True, "id": box_type.id, "name": box_type.name}
+    return {"success": True, "id": box_type.id, "name": box_type.name, "image_url": image_url}
 
 
 # ─── POST /lootbox/buy/{box_type_id} ───────────────────────
@@ -259,6 +283,7 @@ def admin_list_box_types(
                 "epic":      t.drop_epic,
                 "legendary": t.drop_legendary,
             },
+            "collection_filter": t.collection_filter,
         }
         for t in types
     ]
@@ -276,14 +301,25 @@ class PatchBoxTypeSchema(BaseModel):
     drop_epic:      Optional[int]   = None
     drop_legendary: Optional[int]   = None
     is_active:      Optional[bool]  = None
+    collection_filter: Optional[str] = None
 
 
 @router.patch("/admin/types/{box_type_id}")
-def admin_patch_box_type(
+async def admin_patch_box_type(
     box_type_id: int,
-    body: PatchBoxTypeSchema,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    name:              Optional[str] = Form(None),
+    description:       Optional[str] = Form(None),
+    pool_types:        Optional[str] = Form(None),
+    collection_filter: Optional[str] = Form(None),
+    price_coins:       Optional[int] = Form(None),
+    drop_common:       Optional[int] = Form(None),
+    drop_rare:         Optional[int] = Form(None),
+    drop_epic:         Optional[int] = Form(None),
+    drop_legendary:    Optional[int] = Form(None),
+    is_active:         Optional[bool] = Form(None),
+    file:              Optional[UploadFile] = File(None),
+    db:                Session       = Depends(get_db),
+    current_user:      User          = Depends(get_current_user),
 ):
     if not getattr(current_user, "is_admin", False):
         raise HTTPException(403, "Admin uniquement")
@@ -291,20 +327,32 @@ def admin_patch_box_type(
     if not bt:
         raise HTTPException(404, "Type de caisse introuvable")
 
-    updates = body.model_dump(exclude_unset=True)
+    updates = {
+        "name": name, "description": description, "pool_types": pool_types,
+        "collection_filter": collection_filter, "price_coins": price_coins,
+        "drop_common": drop_common, "drop_rare": drop_rare,
+        "drop_epic": drop_epic, "drop_legendary": drop_legendary,
+        "is_active": is_active,
+    }
     for k, v in updates.items():
-        setattr(bt, k, v)
+        if v is not None:
+            setattr(bt, k, v)
 
-    # Si on touche aux drop rates → revalider le total
-    if any(k.startswith("drop_") for k in updates):
-        total = bt.drop_common + bt.drop_rare + bt.drop_epic + bt.drop_legendary
-        if total != 100:
-            db.rollback()
-            raise HTTPException(400, f"Drop rates doivent totaliser 100 (actuel: {total})")
+    if file:
+        if file.content_type not in ["image/jpeg", "image/png", "image/webp"]:
+            raise HTTPException(400, "Format non supporté")
+        contents = await file.read()
+        safe_name = bt.name.lower().replace(" ", "_").replace("—", "-")
+        bt.image_url = await upload_image(contents, folder="junglegap/lootboxes", public_id=f"box_{safe_name}")
+
+    total = bt.drop_common + bt.drop_rare + bt.drop_epic + bt.drop_legendary
+    if total != 100:
+        db.rollback()
+        raise HTTPException(400, f"Drop rates doivent totaliser 100 (actuel: {total})")
 
     db.commit()
     db.refresh(bt)
-    return {"success": True, "id": bt.id}
+    return {"success": True, "id": bt.id, "image_url": bt.image_url}
 
 
 # ─── ADMIN — DELETE /lootbox/admin/types/{id} ──────────────

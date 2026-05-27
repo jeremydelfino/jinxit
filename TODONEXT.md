@@ -1,149 +1,214 @@
-Voilà le récap complet à copier-coller dans le prochain chat :
+# Récap complet — Suite système Caisses/Stickers Jungle Gap
+
+## ✅ État actuel (DONE)
+
+### Backend
+- **Migrations DB locales** appliquées (PAS en prod) :
+  - `user_cards` : `quantity INTEGER DEFAULT 1`, `equipped_slot VARCHAR(10)` (legacy, à drop), `position_x NUMERIC(5,2)`, `position_y NUMERIC(5,2)`
+  - Contraintes `uq_user_cards_user_slot` et `user_cards_equipped_slot_check` **droppées**
+  - `lootbox_types` : table créée (config admin, drop_rates, pool_types CSV, price_coins, is_active)
+  - `lootboxes` : table créée (caisses possédées + opened_at + opened_card_id)
+  - `promo_codes` : colonnes `lootbox_type_id` + `lootbox_quantity` ajoutées
+  - `cards` : colonne `collection VARCHAR(100)` ajoutée
+  - `transactions.transactions_type_check` étendu : ajout de `lootbox_purchase`, `card_sold`, `crate_purchase`, `promo_redeem`, `admin_add`, `coachdiff_*`
+
+- **Modèles SQLAlchemy** :
+  - `backend/models/lootbox.py` : `LootBoxType` + `LootBox`
+  - `backend/models/user_card.py` : `quantity`, `position_x`, `position_y` ajoutés (le `equipped_slot` peut rester mais n'est plus utilisé)
+  - `backend/models/promo.py` : `lootbox_type_id` + `lootbox_quantity` + relationship `lootbox_type`
+  - `backend/models/card.py` : `collection = Column(String(100), nullable=True)`
+
+- **Services** :
+  - `backend/services/lootbox_service.py` : `pick_card_from_box()` (tirage rareté pondéré + fallback rareté si pool vide), `grant_card_to_user()` (atomique via `ON CONFLICT DO UPDATE`), constantes `RESALE_PRICES = {common:50, rare:200, epic:800, legendary:3000}`
+
+- **Routers** :
+  - `backend/routers/lootbox.py` :
+    - `GET /lootbox/my-boxes` ✅
+    - `GET /lootbox/types` ✅
+    - `POST /lootbox/{box_id}/open` ✅
+    - `POST /lootbox/buy/{box_type_id}` ✅ (avec `with_for_update`, vérif `is_active`, débit + Transaction)
+    - `POST /lootbox/admin/types` ✅ (création, validation drop_rates total=100)
+    - `POST /lootbox/admin/grant/{user_id}/{box_type_id}` ✅
+    - `GET /lootbox/admin/types` ✅ (tous, gating `is_admin`)
+    - `PATCH /lootbox/admin/types/{id}` ✅
+    - `DELETE /lootbox/admin/types/{id}` ✅ (soft si caisses en circulation, hard sinon)
+  - `backend/routers/cards.py` (complètement réécrit) :
+    - `GET /cards/my-cards` ✅ (renvoie `quantity`, `position_x/y`, `collection`)
+    - `POST /cards/{user_card_id}/sell` ✅ (auto-unequip si dernière copie, débit, Transaction)
+    - `GET /cards/collection-progress` ✅ (cartes groupées par type → collection)
+    - `POST /cards/equip-sticker` ✅ (positions libres, check max 3, type=sticker uniquement)
+    - `POST /cards/move-sticker` ✅ (update position drag)
+    - `DELETE /cards/equip-sticker/{user_card_id}` ✅
+    - `GET /cards/equipped-stickers` ✅ (renvoie une **liste**, pas un dict left/center/right)
+    - Helper `_equipped_stickers_for(db, user_id)` exposé pour les autres routers
+  - `backend/routers/promo.py` :
+    - `POST /promo/redeem` ✅ avec intégration lootbox
+    - `CreatePromoSchema` étendu (lootbox_type_id + lootbox_quantity)
+    - `_serialize()` retourne le champ `lootbox`
+
+- **Bug fix critique appliqué** : `routers/promo.py` importait `models.promo_code` au lieu de `models.promo` → corrigé
+
+### Frontend
+- **Route ajoutée** dans `App.jsx` : `<Route path="/lootbox" element={<LootBox />} />`
+- **Page `frontend/src/pages/LootBox/index.jsx`** créée avec 4 onglets (Collection / Stickers / Mes caisses / Boutique) :
+  - Hero avec stats (coins, caisses en attente, cartes possédées, stickers possédés)
+  - Tab Collection : sous-vues groupées par nom de collection (Beta, LegendsV1...) avec progress bar, slots grisés pour les non-possédées, bouton revendre sur les possédées
+  - Tab Stickers : même UX mais filtrée sur `type === 'sticker'`
+  - Tab Mes caisses : grille des caisses non-ouvertes, animation d'ouverture en 2 phases (shake → reveal)
+  - Tab Boutique : section caisses (drop rates en barres animées) + section "achat à l'unité" (placeholder "bientôt disponible")
+  - Reveal full-screen avec burst, glow par rareté, TcgCard, bouton continuer
+  - `loadAll()` utilise `Promise.allSettled` (tolère les erreurs partielles)
+- **Page `LootBox.css`** : design complet avec glows de fond animés, texture noise, gradient hero, tabs premium, drop rates en pills/barres, animations (shimmer, pulse, float, burst, reveal-pop), responsive complet
+
+- **Composant `frontend/src/pages/Profile/components/BannerStickers/index.jsx`** créé :
+  - Récupère les stickers équipés via `/cards/equipped-stickers`
+  - Affiche les stickers en `position:absolute` sur la bannière à `(x%, y%)`
+  - Drag-and-drop natif (pointer events) pour repositionner librement
+  - Bouton `+ Sticker` en bas-droite de la bannière si moins de 3 équipés
+  - Modal **full-screen** (via `createPortal`) au clic, avec grille des stickers possédés non-équipés
+  - Bouton × sur chaque sticker au hover pour le retirer
+  - Glow par rareté (drop-shadow CSS)
+  - **Le composant attend une prop `bannerRef`** pour calculer les % par rapport à la bannière
+
+- **`BannerStickers.css`** : taille 100x100px (70 sur mobile), glow par rareté, bouton add pulsant, modal portal premium
 
 ---
 
-# Contexte — Suite système Caisses/Stickers Jungle Gap
+## 🎯 Ce qu'il reste à faire (TODO dans l'ordre)
 
-## ✅ Étape 1 — DB & Modèles (DONE)
+### Étape A — Finir l'intégration BannerStickers dans Profile (PRIORITÉ 1)
+**Pas encore fait.** Le composant est créé mais pas branché dans `Profile/index.jsx`. Il faut :
 
-**Migrations SQL appliquées en local** (PAS en prod) :
-- `user_cards` : ajout `quantity INTEGER NOT NULL DEFAULT 1` + `equipped_slot VARCHAR(10)` (NULL | left | center | right)
-- Contrainte CHECK + index unique partiel `uq_user_cards_user_slot` (user_id, equipped_slot) WHERE equipped_slot IS NOT NULL
-- Contrainte UNIQUE existante `(user_id, card_id)` conservée → exploitée pour `INSERT ... ON CONFLICT DO UPDATE`
-- Nouvelle table `lootbox_types` : config admin des types de caisses (drop rates par rareté, pool_types CSV, price_coins, is_active)
-- Nouvelle table `lootboxes` : caisses possédées par user (opened_at + opened_card_id pour l'historique)
-- `promo_codes` : ajout `lootbox_type_id` + `lootbox_quantity`
+1. Demander à Jérémy de coller son `Profile/index.jsx` actuel (l'AI a refusé de réécrire à l'aveugle pour ne pas perdre des hooks/handlers existants)
+2. Dans `Profile/index.jsx` :
+   - Importer `BannerStickers` : `import BannerStickers from './components/BannerStickers'`
+   - Importer `useRef` depuis React
+   - Créer `const bannerRef = useRef(null)`
+   - Ajouter la ref à la bannière : `<div className="profile-banner" ref={bannerRef} ...>`
+   - Placer `<BannerStickers userId={profile?.id} isOwnProfile={isOwnProfile} bannerRef={bannerRef} />` **à l'intérieur** de `.profile-banner` (juste avant son `</div>` fermant)
+3. Vérifier dans `Profile.css` que `.profile-banner` a bien `position: relative` (sinon les stickers en `absolute` se positionneront par rapport au mauvais conteneur)
 
-**Modèles SQLAlchemy créés/modifiés** :
-- `backend/models/user_card.py` : ajout colonnes + CheckConstraint
-- `backend/models/lootbox.py` : nouveau fichier (LootBoxType + LootBox)
-- `backend/models/promo.py` : ajout des 2 colonnes + relationship lootbox_type
+### Étape B — Exposer les stickers d'autres users
+Quand un utilisateur consulte le profil d'un autre, le composant appelle `/profile/{userId}/equipped-stickers` qui **n'existe pas encore**. Deux options :
 
-## ✅ Étape 2A — Backend base caisses (DONE)
+- **Option 1 (rapide)** : créer ce endpoint dans `routers/profile.py` qui appelle `_equipped_stickers_for(db, user_id)` de `cards.py`
+- **Option 2 (mieux)** : ajouter directement `equipped_stickers: [...]` dans la réponse de `/profile/{userId}` et `/profile/me`, et adapter le composant pour lire depuis là plutôt que faire un fetch séparé
 
-**Fichiers créés** :
-- `backend/services/lootbox_service.py` : `pick_card_from_box()` (tirage rareté pondéré + fallback rareté si pool vide) + `grant_card_to_user()` (atomique via ON CONFLICT)
-- `backend/routers/lootbox.py` : router `/lootbox`
+Recommandation : option 1 d'abord (plus rapide à valider), puis migrer vers option 2 plus tard.
 
-**Endpoints implémentés** :
-- `GET /lootbox/my-boxes` : caisses non-ouvertes de l'user
-- `GET /lootbox/types` : catalogue des caisses actives (pour shop)
-- `POST /lootbox/{box_id}/open` : ouverture (vérifie ownership + not opened + appelle pick_card)
-- `POST /lootbox/admin/types` : création type de caisse (admin only, validation drop_rates total = 100)
-- `POST /lootbox/admin/grant/{user_id}/{box_type_id}?quantity=N` : grant manuel
+### Étape C — Admin UI (lootbox + cards)
+**Pas commencé.** À faire pour ne plus avoir à tout faire en SQL/curl :
 
-**Tests effectués** :
-- Création caisse "Basique" OK (id=1, prix 500 coins)
-- Grant + listing OK
-- Ouverture impossible car DB locale n'a aucune carte → à régler avec Jérémy au prochain test (soit créer des cartes via AdminCards, soit injecter en SQL)
-- ⚠️ Pas encore testé : la distribution des raretés sur 20+ ouvertures + l'incrément de `quantity` sur doublons
+1. **Page `frontend/src/pages/AdminLootbox/index.jsx`** :
+   - Liste des types de caisses (`GET /lootbox/admin/types`)
+   - Formulaire création (nom, description, image_url, price_coins, pool_types CSV, drop_rates total=100, is_active)
+   - Édition inline (PATCH)
+   - Suppression (DELETE avec gestion soft/hard)
+   - Gating `is_admin` (rediriger si pas admin)
+   - Ajouter la route dans `App.jsx`
 
-**Constantes définies (pas encore utilisées)** :
-```python
-RESALE_PRICES = {"common": 50, "rare": 200, "epic": 800, "legendary": 3000}
-```
+2. **Page AdminCards** (existe déjà à `frontend/src/pages/AdminCards/`) :
+   - Ajouter `sticker` dans le dropdown des types
+   - Ajouter le champ `collection` (input text libre)
+   - S'assurer que le POST passe bien `collection` au backend
+   - Côté backend : modifier `routers/admin.py` `create_card` pour accepter `collection: Optional[str] = Form(None)` et l'inclure dans l'instanciation + dans la réponse de `list_cards`
 
----
+3. **Page AdminPromo** : ajouter les champs `lootbox_type_id` (dropdown des types existants) + `lootbox_quantity` (int) dans le form
 
-## 🎯 Étape suivante — 2B : Achat / Revente / Promo
+### Étape D — Mise en production
+Quand tout est validé en local :
 
-À implémenter **dans cet ordre** :
+1. **Backup DB prod** : `pg_dump junglegap > backup_$(date +%Y%m%d).sql`
+2. **Migrations à appliquer en prod** (toutes celles faites en local) :
+   ```sql
+   -- user_cards
+   ALTER TABLE user_cards ADD COLUMN IF NOT EXISTS quantity INTEGER NOT NULL DEFAULT 1;
+   ALTER TABLE user_cards ADD COLUMN IF NOT EXISTS equipped_slot VARCHAR(10);
+   ALTER TABLE user_cards ADD COLUMN IF NOT EXISTS position_x NUMERIC(5,2);
+   ALTER TABLE user_cards ADD COLUMN IF NOT EXISTS position_y NUMERIC(5,2);
+   ALTER TABLE user_cards DROP CONSTRAINT IF EXISTS uq_user_cards_user_slot;
+   ALTER TABLE user_cards DROP CONSTRAINT IF EXISTS user_cards_equipped_slot_check;
+   
+   -- cards
+   ALTER TABLE cards ADD COLUMN IF NOT EXISTS collection VARCHAR(100);
+   
+   -- transactions
+   ALTER TABLE transactions DROP CONSTRAINT IF EXISTS transactions_type_check;
+   ALTER TABLE transactions ADD CONSTRAINT transactions_type_check
+     CHECK (type IN ('signup_bonus','daily_reward','admin_add','bet_placed','bet_won','bet_lost','bet_refunded','bet_cancelled','crate_purchase','lootbox_purchase','card_sold','coachdiff_entry','coachdiff_win','coachdiff_draw','promo_redeem'));
+   
+   -- lootbox_types + lootboxes : récupérer le DDL exact depuis la DB locale
+   -- (pg_dump --schema-only -t lootbox_types -t lootboxes junglegap)
+   
+   -- promo_codes
+   ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS lootbox_type_id INTEGER REFERENCES lootbox_types(id);
+   ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS lootbox_quantity INTEGER DEFAULT 0;
+   ```
+3. **Push code** : git push main
+4. **Restart systemd** : `sudo systemctl restart junglegap-backend` sur la VM
+5. **Smoke tests prod** :
+   - Créer un type de caisse via curl admin
+   - S'auto-grant une caisse
+   - Ouvrir → vérifier qu'on récupère une carte (s'assurer qu'il y a des cartes en DB prod)
+   - Acheter une caisse (vérifier débit coins)
+   - Vendre une carte
+   - Créer un code promo lootbox + redeem
+   - Aller sur `/lootbox` et vérifier les 4 onglets
+   - Équiper un sticker, drag, retirer
 
-1. **`POST /lootbox/buy/{box_type_id}`** : 
-   - Vérifie que le type est `is_active` et a un `price_coins` non NULL
-   - Vérifie que l'user a assez de coins
-   - Débite + crée 1 LootBox
-   - Renvoie `{success, coins_remaining, lootbox_id}`
-
-2. **`POST /cards/{user_card_id}/sell`** (dans `routers/cards.py`) :
-   - Vérifie ownership
-   - Empêche revente si `equipped=true` ou `equipped_slot IS NOT NULL`
-   - Si `quantity > 1` → décrémente
-   - Si `quantity == 1` → DELETE la ligne
-   - Crédite `RESALE_PRICES[card.rarity]` coins
-   - Renvoie `{success, coins_gained, coins_total, remaining_quantity}`
-
-3. **Intégration `/promo/redeem`** :
-   - Si `promo.lootbox_type_id` non NULL et `promo.lootbox_quantity > 0` → créer N LootBox pour l'user
-   - Ajouter `lootbox` dans le `rewards` dict renvoyé : `{"lootbox": {"name": "...", "quantity": N}}`
-
-4. **Admin endpoints complémentaires** :
-   - `GET /lootbox/admin/types` : liste TOUS les types (actifs + inactifs)
-   - `PATCH /lootbox/admin/types/{id}` : édition
-   - `DELETE /lootbox/admin/types/{id}` : suppression (uniquement si pas de LootBox liée, sinon `is_active=false`)
-
-## 🎯 Étape 3 — Frontend ouverture
-
-- Page "Mes caisses" : soit nouvelle page `/lootbox`, soit onglet dans Profile (à voir avec Jérémy)
-- Page shop "Acheter une caisse" (`GET /lootbox/types`)
-- Animation d'ouverture : carte qui flip avec couleur selon rarité, effet de glow/shimmer (s'inspirer du composant `TcgCard` existant)
-- Bouton "Revendre" sur les cartes en doublon dans le tab "Cartes" du Profile
-
-## 🎯 Étape 4 — Bannière Stickers (le but originel)
-
-**Backend** :
-- `POST /cards/equip-slot` body `{user_card_id, slot}` : valide que `card.type == 'sticker'`, contrainte unique gère le slot déjà pris (DELETE puis INSERT, ou UPDATE)
-- `DELETE /cards/equip-slot/{slot}` : retire le sticker du slot
-- Exposer les 3 stickers équipés dans `/profile/me` et `/user/{id}` : nouveau champ `equipped_stickers: {left, center, right}` avec `{name, image_url, rarity}` ou null
-
-**Frontend** :
-- 3 zones cliquables sur `.profile-banner` (positionnées en gauche / centre / droite, avec un emplacement vide qui montre `+` quand on est sur son propre profil)
-- Modal "Choisir un sticker" qui filtre `userCards` sur `card.type === 'sticker'`
-- Cliquer sur un slot vide ouvre le modal ; cliquer sur un slot rempli propose "Retirer"
-
-## 🎯 Étape 5 — Admin UI (en parallèle / après)
-
-- Page `/admin/lootbox` avec form de création de type + liste éditable
-- Ajouter `sticker` (et plus tard `emote`, `frame`) dans le dropdown des types de carte dans `/admin/cards`
-- Étendre le form AdminPromo avec champs `lootbox_type_id` + `lootbox_quantity`
-
-## 🎯 Étape 6 — Prod
-
-- Backup DB prod
-- Appliquer la migration SQL (même fichier qu'en local)
-- Push code
-- Restart `junglegap-backend`
-- Smoke tests : créer un type de caisse, se grant, ouvrir, vendre, racheter
+### Étape E — Polish & extensions (optionnel après MVP)
+- Notifications/toasts au lieu des `alert()` et `window.confirm()`
+- Animation de "vibration légère" au moment du débit de coins
+- Filtre/recherche dans la grille Collection (par nom, par rareté)
+- Tri des collections (par % de complétion, alphabétique, date d'ajout)
+- Sound effect optionnel à l'ouverture de caisse
+- Endpoint `/lootbox/admin/cleanup-test-boxes` pour wipe rapidement l'inventaire de test
+- Animation des stickers (légère flottaison) sur les profils visités
+- Système d'**emote / frame / title** (déjà prévu architecturalement, juste ajouter le `type` correspondant et la logique d'équipement)
+- Boutique : implémenter l'achat à l'unité de cartes (actuellement placeholder)
+- Stats Hero : ajouter un compteur "Stickers équipés" (X/3)
+- Stocker l'historique des ouvertures (lootbox_id → card_id) pour affichage "Drops récents persistants" entre sessions
 
 ---
 
 ## Setup Jérémy
-
-- macOS, zsh, pyenv Python 3.10.10, projet à `/Users/jdelfino/JungleGap/` (⚠️ certains chemins legacy mentionnent `/Users/jdelfino/JinxIt/jinxit/` — vérifier avant d'utiliser)
-- DB locale : `psql -d junglegap` (pas besoin de sudo -u postgres sur sa machine, il a accès direct)
-- VM prod = `junglegap` (systemd `junglegap-backend`)
-- Domaine : `junglegap.fr` (front Vercel) + `api.junglegap.fr` (back nginx)
-- User_id de Jérémy en local = **2** (pas 1 comme on supposait au début)
+- macOS, zsh, pyenv Python 3.10.10, projet `/Users/jdelfino/JinxIt/jinxit/` (legacy) — l'arbo réelle utilise `JinxIt/jinxit/` malgré le rebrand
+- DB locale : `psql -d junglegap` (accès direct, pas besoin de sudo postgres)
+- VM prod : `junglegap` (systemd `junglegap-backend`)
+- Domaines : `junglegap.fr` (front Vercel) + `api.junglegap.fr` (back nginx)
+- `user_id` Jérémy en local = **2**
 
 ## Préférences Jérémy
-
-- Étudiant info, veut explications **claires/concises mais extrêmement bien réfléchies**
-- Réécritures complètes après accumulation de fixes
+- Étudiant info, explications **claires/concises mais extrêmement bien réfléchies**
+- Réécritures **complètes** des fichiers après accumulation de fixes (pas de patch)
 - Modifs ligne par ligne quand scope étroit/clair
 - Discuter l'approche avant de coder quand ambigu
-- Code copy-pasteable dans le chat (pas en fichier)
-- CSS : une règle par ligne, groupé par catégorie avec commentaires de section
-- Composants : `frontend/src/pages/[Name]/index.jsx` + `Name.css` séparés
-- `api` client centralisé (`import api from '../../api/client'`), JAMAIS axios brut
-- Auth store : default export (`import useAuthStore from '../../store/auth'`)
-- Design : `#171717` bg, `#65BD62` vert, `#c89b3c` gold, Outfit (heading 800-900) + Inter (body)
+- Code copy-pasteable dans le chat (pas en fichier joint)
+- **CSS** : une règle par ligne, groupé par catégorie avec commentaires de section (ex: `/* ─── HERO ─── */`)
+- Composants : `frontend/src/pages/[Name]/index.jsx` + `[Name].css` séparés
+- `api` client centralisé (`import api from '../../api/client'`), **JAMAIS axios brut**
+- Auth store : **default export** (`import useAuthStore from '../../store/auth'`)
+- Design system : `#171717` bg, `#65BD62` vert, `#c89b3c` gold, Outfit (800-900 headings) + Inter (body)
+- Préfère le drag natif HTML5 / pointer events au lieu d'ajouter une dépendance
 
-## Décisions architecturales clés (à ne pas remettre en cause)
-
-- **Tout passe par la table `cards`** (pas de table `stickers` séparée). Le champ `type` distingue (champion / pro_player / meme / cosmetic / sticker / etc.). Extensible facilement pour emote / frame / title plus tard
-- **Drop rates globaux** : common 60% / rare 25% / epic 12% / legendary 3%. Stockés sur `lootbox_types` pour permettre des caisses spéciales plus tard, mais on garde les mêmes par défaut
-- **Doublons stockés en quantity** sur `user_cards` (1 ligne par carte, +1 à chaque drop) via `ON CONFLICT DO UPDATE`
-- **Revente manuelle** par l'user (pas automatique). Prix par rareté : 50/200/800/3000
+## Décisions architecturales (à NE PAS remettre en cause)
+- **Toutes les cartes dans `cards`** (pas de table séparée). Distinction via colonne `type` (champion / pro_player / meme / cosmetic / sticker / emote / frame / title à venir)
+- **Système de stickers** : positions libres x/y en %, max 3 équipés (check applicatif `MAX_EQUIPPED_STICKERS = 3`), boolean `equipped` + `position_x`/`position_y` nullable
+- **Anciens slots left/center/right** : `equipped_slot` legacy à droper plus tard (déjà vidé de toute contrainte)
+- **Drop rates globaux par défaut** : common 60% / rare 25% / epic 12% / legendary 3% (stockés sur `lootbox_types` pour permettre des caisses spéciales)
+- **Doublons stockés en `quantity`** sur `user_cards` via `ON CONFLICT DO UPDATE`
+- **Revente manuelle** par l'user (50/200/800/3000 selon rareté)
 - **Caisses obtenues via** : achat coins + code promo (pas de daily, pas de drop sur paris pour l'instant)
+- **Collection** : champ libre `VARCHAR(100)` sur `cards` (ex: "Beta", "LegendsV1"). NULL = "Sans collection". Pas une table à part.
+- **Onglet par défaut sur `/lootbox`** : Collection (progression visible d'emblée)
+- **Modal stickers** : full-screen via `createPortal` (pas confiné dans la bannière)
 
-## Première action attendue
+## Première action attendue pour le nouveau chat
+Jérémy doit coller son `Profile/index.jsx` actuel. L'AI doit :
+1. Le réécrire complet en ajoutant `useRef`, `bannerRef`, et l'intégration `<BannerStickers>` dans `.profile-banner`
+2. Vérifier que `.profile-banner` a `position: relative` dans le CSS
+3. Créer l'endpoint manquant `GET /profile/{userId}/equipped-stickers` (ou modifier le composant pour lire depuis `/profile/{userId}` si l'endpoint expose déjà `equipped_stickers`)
+4. Tester : ajout sticker, drag, retrait, consultation d'un autre profil
+5. Ensuite enchaîner sur **Étape C (Admin UI)** puis **Étape D (prod)**
 
-Demander à Jérémy s'il veut **(A) finir l'étape 2B (achat/revente/promo) backend**, **(B) sauter directement à l'étape 4 (bannière stickers) qui est le but originel**, ou **(C) faire l'admin UI étape 5 d'abord** pour pouvoir créer des cartes/caisses sans curl.
-
-Si A : commencer par implémenter `POST /lootbox/buy/{box_type_id}` puis `POST /cards/{user_card_id}/sell`, puis l'intégration promo. Tests via curl.
-
-Si B : il faudra d'abord que Jérémy ait créé au moins quelques cartes de type `sticker` (via SQL ou via AdminCards si le type est ajouté au dropdown).
-
----
-
-Bon courage pour le prochain chat 🚀
+Bon courage 🚀

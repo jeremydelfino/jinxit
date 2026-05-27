@@ -10,12 +10,12 @@ from models.team_form import TeamForm
 
 logger = logging.getLogger(__name__)
 
-# --- PARAMÈTRES DE POLARISATION ---
-MARGIN = 0.92          # Marge bookmaker
-EXPONENT = 4         # ÉNORME IMPACT : Transforme un petit avantage en gouffre
-MIN_ODDS = 1.10        # Autorise les côtes de ultra-favori (ex: T1 vs BRO)
-MAX_ODDS = 25.0        # Autorise les côtes de méga-outsider
-# ----------------------------------
+# --- PARAMÈTRES DE POLARISATION (calibrés 2026) ---
+MARGIN   = 0.95  
+EXPONENT = 2.5   
+MIN_ODDS = 1.20   
+MAX_ODDS = 29.0   
+# --------------------------------------------------
 
 PRIOR_WINRATES = {
     # LCK
@@ -388,3 +388,101 @@ def compute_match_odds(t1_code: str, t2_code: str, league_slug: str, events: lis
         "detail_t1": r1["detail"],
         "detail_t2": r2["detail"],
     }
+
+def compute_handicap_odds(odds_t1: float, odds_t2: float, bo: int) -> list:
+    """
+    Cotes handicap maps. Le favori part avec un déficit de maps, l'outsider avec une avance.
+
+    BO3 :
+      - team1 -1.5 : team1 doit gagner 2-0 (sweep)
+      - team1 +1.5 : team1 perd au pire 1-2 (= ne se fait pas sweep)
+    BO5 :
+      - team1 -1.5 : team1 gagne 3-0 ou 3-1
+      - team1 -2.5 : team1 gagne 3-0 (sweep)
+      - team1 +1.5 : team1 perd au pire 2-3
+      - team1 +2.5 : team1 perd au pire 1-3 (= pas sweep)
+
+    Approche : on dérive de prob_t1 (1/odds_t1 normalisé) la prob de chaque scénario
+    via un modèle simple où chaque map = même prob (indépendance).
+    """
+    if bo == 1:
+        return []
+
+    # Probas implicites par map (sans marge)
+    inv_t1 = 1.0 / max(odds_t1, 0.01)
+    inv_t2 = 1.0 / max(odds_t2, 0.01)
+    p1 = inv_t1 / (inv_t1 + inv_t2)
+    p2 = 1.0 - p1
+
+    result = []
+
+    if bo == 3:
+        # P(2-0 t1) = p1^2 ; P(2-1 t1) = 2*p1^2*p2 ; idem pour t2
+        p_2_0_t1 = p1 ** 2
+        p_2_1_t1 = 2 * (p1 ** 2) * p2
+        p_2_0_t2 = p2 ** 2
+        p_2_1_t2 = 2 * (p2 ** 2) * p1
+
+        # team1 -1.5 = team1 gagne 2-0
+        # team1 +1.5 = team1 ne perd pas 0-2 (= gagne ou perd 1-2)
+        prob_t1_minus = p_2_0_t1
+        prob_t1_plus  = p_2_0_t1 + p_2_1_t1 + p_2_1_t2  # tout sauf 2-0 pour t2
+        prob_t2_minus = p_2_0_t2
+        prob_t2_plus  = p_2_0_t2 + p_2_1_t2 + p_2_1_t1
+
+        result.append({
+            "handicap": "-1.5",
+            "team1": round(_clamp(MARGIN_SIDE / max(prob_t1_minus, 0.01), 1.20, 8.0), 2),
+            "team2": round(_clamp(MARGIN_SIDE / max(prob_t2_minus, 0.01), 1.20, 8.0), 2),
+        })
+        result.append({
+            "handicap": "+1.5",
+            "team1": round(_clamp(MARGIN_SIDE / max(prob_t1_plus, 0.01), 1.10, 5.0), 2),
+            "team2": round(_clamp(MARGIN_SIDE / max(prob_t2_plus, 0.01), 1.10, 5.0), 2),
+        })
+        return result
+
+    if bo == 5:
+        # P(3-0) = p^3 ; P(3-1) = 3*p^3*q ; P(3-2) = 6*p^3*q^2
+        p_3_0_t1 = p1 ** 3
+        p_3_1_t1 = 3 * (p1 ** 3) * p2
+        p_3_2_t1 = 6 * (p1 ** 3) * (p2 ** 2)
+        p_3_0_t2 = p2 ** 3
+        p_3_1_t2 = 3 * (p2 ** 3) * p1
+        p_3_2_t2 = 6 * (p2 ** 3) * (p1 ** 2)
+
+        # -1.5 = gagne 3-0 ou 3-1 ; +1.5 = perd au pire 2-3 (= pas 0-3 ni 1-3)
+        # -2.5 = gagne 3-0 ;       +2.5 = perd au pire 1-3 (= pas 0-3)
+        prob_t1_m15 = p_3_0_t1 + p_3_1_t1
+        prob_t1_p15 = p_3_0_t1 + p_3_1_t1 + p_3_2_t1 + p_3_2_t2  # tout sauf 0-3 et 1-3 t2
+        prob_t1_m25 = p_3_0_t1
+        prob_t1_p25 = 1.0 - p_3_0_t2  # tout sauf sweep par t2
+
+        prob_t2_m15 = p_3_0_t2 + p_3_1_t2
+        prob_t2_p15 = p_3_0_t2 + p_3_1_t2 + p_3_2_t2 + p_3_2_t1
+        prob_t2_m25 = p_3_0_t2
+        prob_t2_p25 = 1.0 - p_3_0_t1
+
+        result.append({
+            "handicap": "-1.5",
+            "team1": round(_clamp(MARGIN_SIDE / max(prob_t1_m15, 0.01), 1.20, 6.0), 2),
+            "team2": round(_clamp(MARGIN_SIDE / max(prob_t2_m15, 0.01), 1.20, 6.0), 2),
+        })
+        result.append({
+            "handicap": "+1.5",
+            "team1": round(_clamp(MARGIN_SIDE / max(prob_t1_p15, 0.01), 1.10, 4.0), 2),
+            "team2": round(_clamp(MARGIN_SIDE / max(prob_t2_p15, 0.01), 1.10, 4.0), 2),
+        })
+        result.append({
+            "handicap": "-2.5",
+            "team1": round(_clamp(MARGIN_SIDE / max(prob_t1_m25, 0.01), 1.30, 10.0), 2),
+            "team2": round(_clamp(MARGIN_SIDE / max(prob_t2_m25, 0.01), 1.30, 10.0), 2),
+        })
+        result.append({
+            "handicap": "+2.5",
+            "team1": round(_clamp(MARGIN_SIDE / max(prob_t1_p25, 0.01), 1.05, 3.0), 2),
+            "team2": round(_clamp(MARGIN_SIDE / max(prob_t2_p25, 0.01), 1.05, 3.0), 2),
+        })
+        return result
+
+    return []

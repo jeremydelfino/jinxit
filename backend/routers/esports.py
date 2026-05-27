@@ -320,6 +320,24 @@ def resolve_match(match_id: str, db: Session, match_extras: dict | None = None):
                 logger.warning(f"[resolve_match] bet {bet.id}: map {map_n} hors limites")
                 continue
             won = (parts[0] == game_winners[map_n - 1])
+        elif bet.bet_type == "handicap_maps":
+            try:
+                t1w, t2w = [int(x) for x in actual_score.split("-")]
+            except (ValueError, AttributeError):
+                logger.warning(f"[resolve_match] bet {bet.id}: actual_score invalide '{actual_score}'")
+                continue
+            parts = bet_value.split("_", 1)
+            if len(parts) != 2:
+                continue
+            side, handicap_str = parts
+            try:
+                handicap = float(handicap_str)  # -1.5, +1.5, -2.5, +2.5
+            except ValueError:
+                continue
+            # Diff de maps du POV du côté parié
+            diff = (t1w - t2w) if side == "team1" else (t2w - t1w)
+            # Le côté gagne le handicap si diff + handicap > 0
+            won = (diff + handicap) > 0
 
         else:
             logger.warning(f"[resolve_match] bet {bet.id}: type inconnu '{bet.bet_type}', skip")
@@ -407,6 +425,7 @@ async def get_esports_schedule(
         league   = ev.get("league", {})
         league_s = normalize_league_slug(league)
 
+        is_tbd = _is_tbd_team(t1) or _is_tbd_team(t2)
         t1_wins    = (t1.get("result") or {}).get("gameWins", 0) or 0
         t2_wins    = (t2.get("result") or {}).get("gameWins", 0) or 0
         t1_outcome = (t1.get("result") or {}).get("outcome", None)
@@ -496,6 +515,8 @@ async def get_esports_schedule(
                     "winrate": wr_t2_display,
                 },
             ],
+            "is_playable":    not is_tbd,
+            "is_tbd":         is_tbd,
             "score_multipliers": SCORE_MULTIPLIERS.get(bo, SCORE_MULTIPLIERS[3]),
             "total_bets": total_bets,
         })
@@ -564,15 +585,12 @@ async def get_match_detail(
     match_id: str,
     db: Session = Depends(get_db),
 ):
-    """
-    Renvoie le détail enrichi d'un match : forme, h2h, rosters, breakdown odds,
-    cotes pour tous les types de paris disponibles.
-    """
     from services.odds_engine import (
         compute_match_odds as _compute_match_odds,
         compute_h2h_detail,
         compute_total_maps_odds,
         compute_map_winner_odds,
+        compute_handicap_odds,
     )
     from models.team_form import TeamForm
 
@@ -713,9 +731,10 @@ async def get_match_detail(
 
     # 7. Cotes des nouveaux types
     side_odds = {
-        "first_map": {"team1": odds_t1, "team2": odds_t2},
-        "total_maps": compute_total_maps_odds(odds_t1, odds_t2, bo),
-        "map_winners": compute_map_winner_odds(odds_t1, odds_t2, bo),
+        "first_map":    {"team1": odds_t1, "team2": odds_t2},
+        "total_maps":   compute_total_maps_odds(odds_t1, odds_t2, bo),
+        "map_winners":  compute_map_winner_odds(odds_t1, odds_t2, bo),
+        "handicap":     compute_handicap_odds(odds_t1, odds_t2, bo),
     }
 
     # 8. Total bets sur ce match
@@ -806,10 +825,18 @@ async def trigger_refresh_standings(db: Session = Depends(get_db)):
     await refresh_all_standings(db)
     return {"success": True}
 
+def _is_tbd_team(team: dict) -> bool:
+    """Détecte une équipe TBD (To Be Determined) dans le schedule."""
+    code = (team.get("code") or "").strip().upper()
+    name = (team.get("name") or "").strip().lower()
+    return code in ("TBD", "", "TBC") or name in ("tbd", "to be determined", "tbc", "")
+
+
 VALID_ESPORTS_BET_TYPES = {
     "match_winner", "exact_score",
     "total_maps_over", "total_maps_under",
     "map_winner", "first_map",
+    "handicap_maps",
 }
 
 class PlaceEsportsBetSchema(BaseModel):
@@ -1022,6 +1049,21 @@ async def place_esports_bet(
         if key not in total_odds:
             raise HTTPException(400, f"Seuil {threshold} non disponible pour BO{bo}")
         odds = total_odds[key]
+    elif body.bet_type == "handicap_maps":
+        # bet_value : "team1_-1.5", "team2_+1.5", "team1_-2.5", etc.
+        from services.odds_engine import compute_handicap_odds
+        parts = body.bet_value.split("_", 1)
+        if len(parts) != 2 or parts[0] not in ("team1", "team2"):
+            raise HTTPException(400, "bet_value invalide pour handicap_maps (ex: team1_-1.5)")
+        handicap_val = parts[1]
+        valid_handicaps = {3: ("-1.5", "+1.5"), 5: ("-1.5", "+1.5", "-2.5", "+2.5")}
+        if handicap_val not in valid_handicaps.get(bo, ()):
+            raise HTTPException(400, f"Handicap {handicap_val} non disponible pour BO{bo}")
+        h_odds_list = compute_handicap_odds(odds_result["odds_t1"], odds_result["odds_t2"], bo)
+        target = next((h for h in h_odds_list if h["handicap"] == handicap_val), None)
+        if not target:
+            raise HTTPException(400, "Handicap introuvable")
+        odds = target["team1"] if parts[0] == "team1" else target["team2"]
 
     # 7. Création de l'objet Pari
     bet = EsportsBet(

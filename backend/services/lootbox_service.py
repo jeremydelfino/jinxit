@@ -39,24 +39,29 @@ def pick_card_from_box(db: Session, box_type: LootBoxType) -> Card | None:
     if not allowed_types:
         return None
 
-    # 3. Pool de cartes correspondant
-    candidates = (
-        db.query(Card)
-        .filter(Card.rarity == chosen_rarity, Card.type.in_(allowed_types))
-        .all()
-    )
+# 3. Pool de cartes correspondant
+    query = db.query(Card).filter(Card.rarity == chosen_rarity, Card.type.in_(allowed_types))
 
-    # Fallback : si rien à cette rareté, on essaie les autres (de la rare → moins rare)
+    # Filtre collection si défini
+    if box_type.collection_filter:
+        allowed_collections = [c.strip() for c in box_type.collection_filter.split(",") if c.strip()]
+        if allowed_collections:
+            query = query.filter(Card.collection.in_(allowed_collections))
+
+    candidates = query.all()
+
+    # Fallback : si rien à cette rareté, on essaie les autres
     if not candidates:
         fallback_order = ["legendary", "epic", "rare", "common"]
         for fb in fallback_order:
             if fb == chosen_rarity:
                 continue
-            candidates = (
-                db.query(Card)
-                .filter(Card.rarity == fb, Card.type.in_(allowed_types))
-                .all()
-            )
+            fb_query = db.query(Card).filter(Card.rarity == fb, Card.type.in_(allowed_types))
+            if box_type.collection_filter:
+                allowed_collections = [c.strip() for c in box_type.collection_filter.split(",") if c.strip()]
+                if allowed_collections:
+                    fb_query = fb_query.filter(Card.collection.in_(allowed_collections))
+            candidates = fb_query.all()
             if candidates:
                 break
 

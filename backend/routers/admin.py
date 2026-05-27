@@ -153,7 +153,7 @@ async def create_card(
     # Validation
     if rarity not in ("common", "rare", "epic", "legendary"):
         raise HTTPException(400, "Rareté invalide")
-    if type not in ("champion", "pro_player", "meme", "cosmetic"):
+    if type not in ("champion", "pro_player", "meme", "cosmetic", "sticker"):
         raise HTTPException(400, "Type invalide")
     if file.content_type not in ["image/jpeg", "image/png", "image/webp"]:
         raise HTTPException(400, "Format non supporté (jpeg, png, webp)")
@@ -197,6 +197,19 @@ def delete_card(card_id: int, db: Session = Depends(get_db)):
     db.delete(card)
     db.commit()
     return {"success": True, "deleted": card.name}
+
+from models.card import Card
+
+@router.get("/collections")
+def list_collections(db: Session = Depends(get_db)):
+    rows = (
+        db.query(Card.collection)
+        .filter(Card.collection.isnot(None))
+        .distinct()
+        .order_by(Card.collection)
+        .all()
+    )
+    return [r[0] for r in rows]
 
 
 # **Pour débugger tes paris actuellement bloqués :**

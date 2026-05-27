@@ -187,6 +187,13 @@
 .bop-modal-confirm-shimmer { position: absolute; top: 0; left: -100%; width: 60%; height: 100%; background: linear-gradient(90deg, transparent, #ffffff28, transparent); animation: shimmer 2.5s ease infinite; }
 .bop-modal-spinner { width: 16px; height: 16px; border: 2px solid #0a1a0a25; border-top-color: #0a1a0a; border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto; }
 
+.bop-card.is-tbd { opacity: 0.5; filter: grayscale(0.7); }
+.bop-card.is-tbd:hover { border-color: #ffffff08; transform: none; box-shadow: none; }
+.bop-card-status.tbd { color: #6b7280; background: #ffffff06; font-style: italic; }
+.bop-card-logo-placeholder { width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; font-family: 'Outfit', sans-serif; font-size: 32px; font-weight: 900; color: #2a2a2a; background: #171717; border: 1px dashed #2a2a2a; border-radius: 12px; }
+.bop-card-tbd-banner { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px 14px; border-top: 1px solid #ffffff06; font-size: 11px; color: #6b7280; font-family: 'Inter', sans-serif; font-style: italic; }
+.bop-card-tbd-icon { font-size: 14px; }
+
 /* ─── RESPONSIVE ─── */
 @media (max-width: 1024px) {
   .bop-content { padding: 20px 28px; }

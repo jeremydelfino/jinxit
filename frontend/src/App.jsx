@@ -16,10 +16,13 @@ import CoachDiff from './pages/CoachDiff/index.jsx'
 import CoachDiffGame from './pages/CoachDiffGame/index.jsx'
 import LootBox from './pages/LootBox/index.jsx'
 import Footer from './components/layout/Footer/index.jsx'
+import AdminCards from './pages/AdminCards/index.jsx'
+import AdminLootboxes from './pages/AdminLootboxes/index.jsx'
+
 
 function WithNavbar() {
   return (
-    <div style={{ minHeight: '100vh', background: '#111215' }}>
+    <div style={{ minHeight: '100vh', background: '#171717' }}>
       <Navbar />
       <Outlet />
       <Footer />
@@ -48,6 +51,8 @@ export default function App() {
           <Route path="/games/coachdiff"               element={<CoachDiff />} />
           <Route path="/games/coachdiff/:gameId"       element={<CoachDiffGame />} />
           <Route path="/lootbox"                       element={<LootBox />} />
+          <Route path="/admin/cards"                   element={<AdminCards />} />
+          <Route path="/admin/lootboxes" element={<AdminLootboxes />} />
         </Route>
       </Routes>
     </BrowserRouter>
