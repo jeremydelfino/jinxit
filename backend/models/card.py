@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, Float
+from sqlalchemy import Column, Integer, String, Boolean, Float, Text
 from sqlalchemy.dialects.postgresql import TIMESTAMP
 from sqlalchemy.sql import func
 from database import Base
@@ -19,4 +19,6 @@ class Card(Base):
     is_title        = Column(Boolean, default=False)
     title_text      = Column(String(100), nullable=True)
     collection      = Column(String(100), nullable=True)
+    artist          = Column(String(100), nullable=True)
+    lore            = Column(Text, nullable=True)
     created_at      = Column(TIMESTAMP, server_default=func.now())

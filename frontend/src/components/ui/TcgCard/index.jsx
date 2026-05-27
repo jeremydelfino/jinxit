@@ -31,9 +31,29 @@ function formatBoost(card) {
   return null
 }
 
-export default function TcgCard({ card, size = 'md' }) {
+/**
+ * TcgCard
+ * - minimal=true (par défaut sur la grille) : juste l'image en ratio 5:7, bordure rareté, shimmer legendary
+ * - minimal=false : version flip recto/verso classique (reveal de lootbox)
+ */
+export default function TcgCard({ card, size = 'md', minimal = false }) {
   const r = RARITY_CONFIG[card.rarity] || RARITY_CONFIG.common
   const effect = formatBoost(card)
+
+  if (minimal) {
+    return (
+      <div
+        className={`tcg-mini tcg-${size} tcg-mini-${card.rarity}`}
+        style={{ '--rc': r.color, '--rg': r.glow }}
+      >
+        {card.image_url
+          ? <img src={card.image_url} alt={card.name} referrerPolicy="no-referrer" />
+          : <div className="tcg-mini-placeholder">{TYPE_ICON[card.type] || '🃏'}</div>
+        }
+        {card.rarity === 'legendary' && <div className="tcg-mini-shimmer" />}
+      </div>
+    )
+  }
 
   return (
     <div className={`tcg-card tcg-${size}`} style={{ '--rc': r.color, '--rg': r.glow }}>
@@ -41,27 +61,23 @@ export default function TcgCard({ card, size = 'md' }) {
 
         {/* ── RECTO : art de la carte ── */}
         <div className="tcg-front">
-          {/* Cadre rareté en haut */}
           <div className="tcg-top-bar" />
 
-          {/* Image */}
           <div className="tcg-art">
             {card.image_url
               ? <img src={card.image_url} alt={card.name} referrerPolicy="no-referrer" />
               : <div className="tcg-art-placeholder">{TYPE_ICON[card.type] || '🃏'}</div>
             }
-            {/* Shimmer legendary */}
             {card.rarity === 'legendary' && <div className="tcg-shimmer" />}
           </div>
 
-          {/* Footer recto */}
           <div className="tcg-front-footer">
             <div className="tcg-card-name">{card.name}</div>
             <div className="tcg-rarity-badge" style={{ color: r.color }}>{r.label}</div>
           </div>
         </div>
 
-        {/* ── VERSO : stats & effet ── */}
+        {/* ── VERSO ── */}
         <div className="tcg-back">
           <div className="tcg-back-header">
             <div className="tcg-back-icon">{TYPE_ICON[card.type] || '🃏'}</div>

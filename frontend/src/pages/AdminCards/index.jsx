@@ -35,6 +35,8 @@ const EMPTY_FORM = {
   is_banner: false, is_title: false, title_text: '',
   collection: '',
   hasEffect: true,
+  artist: '',
+  lore: '',
 }
 
 export default function AdminCards() {
@@ -87,6 +89,8 @@ export default function AdminCards() {
     fd.append('is_banner', form.is_banner)
     fd.append('is_title', form.is_title)
     if (form.is_title) fd.append('title_text', form.title_text)
+    if (form.artist.trim()) fd.append('artist', form.artist.trim())
+    if (form.lore.trim()) fd.append('lore', form.lore.trim())
 
     if (form.hasEffect) {
       fd.append('boost_type', form.boost_type)
@@ -157,11 +161,16 @@ export default function AdminCards() {
             </button>
           )}
 
-          {/* Nom */}
+          {/* Nom et description */}
           <div className="form-group">
             <label>Nom de la carte</label>
             <input className="form-input" placeholder="ex: Faker — The Unkillable" value={form.name} onChange={e => f('name', e.target.value)} />
           </div>
+
+          <input className="form-input" type="text" placeholder="Artiste (optionnel)"
+            value={form.artist} onChange={e => f('artist', e.target.value)} />
+          <textarea className="form-input" rows={4} placeholder="Lore / description (optionnel)"
+            value={form.lore} onChange={e => f('lore', e.target.value)} />
 
           {/* Type + Rareté */}
           <div className="form-row">

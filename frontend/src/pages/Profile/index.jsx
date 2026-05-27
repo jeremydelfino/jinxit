@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import useAuthStore from '../../store/auth'
 import api from '../../api/client'
 import TcgCard from '../../components/ui/TcgCard'
+import TcgCardModal from '../../components/ui/TcgCardModal'
 import { TIER_COLORS, APEX_TIERS } from '../Player/constants'
 import { getTierImage } from '../Player/utils'
 import BannerStickers from './components/BannerStickers'
@@ -14,6 +15,8 @@ const REGIONS = ['EUW','EUNE','NA','KR','BR','JP','TR','OCE']
 
 const BET_TYPE_LABELS  = { who_wins: 'Victoire', first_blood: 'First Blood' }
 const BET_VALUE_LABELS = { blue: 'Équipe Bleue', red: 'Équipe Rouge' }
+
+const RARITY_RANK = { legendary: 0, epic: 1, rare: 2, common: 3 }
 
 /* ─── Helpers ─── */
 function computeStats(bets) {
@@ -69,23 +72,29 @@ function ProfileSocials({ social }) {
     svg: <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>,
   })
   if (x_handle) items.push({
-    key: 'x', label: x_handle, color: '#ffffff',
-    url: `https://x.com/${x_handle}`,
+    key: 'x', label: x_handle, color: '#e8eaf0',
+    url: `https://x.com/${x_handle.replace('@', '')}`,
     svg: <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>,
   })
   if (instagram_handle) items.push({
-    key: 'instagram', label: instagram_handle, color: '#E1306C',
-    url: `https://instagram.com/${instagram_handle}`,
+    key: 'ig', label: instagram_handle, color: '#E1306C',
+    url: `https://instagram.com/${instagram_handle.replace('@', '')}`,
     svg: <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/>,
   })
 
   return (
-    <div className="profile-socials">
+    <div className="profile-hero-socials">
       {items.map(it => (
-        <a key={it.key} href={it.url} target="_blank" rel="noopener noreferrer"
-           className="profile-social-link" style={{ '--sc': it.color }}
-           title={`@${it.label}`}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">{it.svg}</svg>
+        <a 
+          key={it.key} 
+          href={it.url} 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          className="profile-social-link" // Utilisez la classe attendue par le CSS
+          style={{ '--sc': it.color }} 
+          title={it.label}
+        >
+          <svg className="profile-hero-social-svg" viewBox="0 0 24 24" fill="currentColor" style={{ width: '100%', height: '100%' }}>{it.svg}</svg>
         </a>
       ))}
     </div>
@@ -199,7 +208,7 @@ function AddRiotStepper({ onDone, onCancel }) {
 export default function Profile() {
   const navigate              = useNavigate()
   const { userId }            = useParams()
-  const { user, token, login } = useAuthStore()
+  const { user, token, login, updateUser } = useAuthStore()
   const fileRef               = useRef(null)
 
   const isOwnProfile = !userId || (user && String(user.id) === String(userId))
@@ -211,8 +220,9 @@ export default function Profile() {
   const [betsLoading,    setBetsLoading]    = useState(false)
   const [userCards,      setUserCards]      = useState([])
   const [showAddRiot,    setShowAddRiot]    = useState(false)
-  const [rightTab,       setRightTab]       = useState('bets')   // 'bets' | 'cards'
+  const [rightTab,       setRightTab]       = useState('bets')
   const [esportsTeams,   setEsportsTeams]   = useState([])
+  const [zoomedCard,     setZoomedCard]     = useState(null)
 
   const loadProfile = () => {
     const endpoint = isOwnProfile ? '/profile/me' : `/profile/user/${userId}`
@@ -300,6 +310,14 @@ export default function Profile() {
     navigate(`/player/${ra.region}/${encodeURIComponent(ra.summoner_name)}/${encodeURIComponent(ra.tag_line)}`)
   }
 
+  // Tri cartes : rareté décroissante
+  const sortedUserCards = [...userCards].sort((a, b) => {
+    const rA = RARITY_RANK[a.card.rarity] ?? 99
+    const rB = RARITY_RANK[b.card.rarity] ?? 99
+    if (rA !== rB) return rA - rB
+    return a.card.name.localeCompare(b.card.name)
+  })
+
   if (loading) return (
     <div className="profile-page">
       <div className="profile-loading">
@@ -317,16 +335,19 @@ export default function Profile() {
     </div>
   )
 
-  const displayName  = profile?.username || '—'
-  const riotAccounts = profile?.riot_accounts || []
-  const primaryAcc   = riotAccounts.find(ra => ra.is_primary) || riotAccounts[0] || null
-  const otherAccs    = riotAccounts.filter(ra => ra.id !== primaryAcc?.id)
-  const favTeam      = profile?.favorite_team
-  const accentColor  = favTeam?.color || '#65BD62'
-  const lolIconUrl   = primaryAcc?.profile_icon_url || null
-  const avatarSrc    = profile?.avatar_url || lolIconUrl
-  const tierColor    = primaryAcc?.tier ? TIER_COLORS[primaryAcc.tier] : '#6b7280'
-  const tierImg      = primaryAcc?.tier ? getTierImage(primaryAcc.tier) : null
+  const displayName        = profile?.username || '—'
+  const riotAccounts       = profile?.riot_accounts || []
+  const primaryAcc         = riotAccounts.find(ra => ra.is_primary) || riotAccounts[0] || null
+  const otherAccs          = riotAccounts.filter(ra => ra.id !== primaryAcc?.id)
+  const favTeam            = profile?.favorite_team
+  const accentColor        = favTeam?.color || '#65BD62'
+  const lolIconUrl         = primaryAcc?.profile_icon_url || null
+  const avatarSrc          = profile?.avatar_url || lolIconUrl
+  const tierColor          = primaryAcc?.tier ? TIER_COLORS[primaryAcc.tier] : '#6b7280'
+  const tierImg            = primaryAcc?.tier ? getTierImage(primaryAcc.tier) : null
+  const equippedTitleId    = profile?.equipped_title_id ?? null
+  const equippedTitleText  = profile?.equipped_title_text ?? null
+
   const stats = isOwnProfile
     ? computeStats(bets)
     : {
@@ -342,7 +363,7 @@ export default function Profile() {
   return (
     <div className="profile-page">
 
-    {/* ─── BANNER + HERO INTÉGRÉ ─── */}
+      {/* ─── BANNER + HERO INTÉGRÉ ─── */}
       <div className="profile-banner" style={{ '--accent': accentColor }}>
         <div className="profile-banner-bg" style={{ background: `linear-gradient(135deg, ${accentColor}28 0%, ${accentColor}08 35%, #171717 75%)` }} />
         {favTeam?.logo && (
@@ -351,64 +372,66 @@ export default function Profile() {
         <div className="profile-banner-glow" style={{ background: `radial-gradient(circle at 20% 50%, ${accentColor}25, transparent 60%)` }} />
         <div className="profile-banner-overlay" />
 
-        {/* Hero intégré dans la bannière */}
         <div className="profile-hero">
-        <div className="profile-avatar-wrap">
-          <div className="profile-avatar" style={{ borderColor: accentColor + '50' }}>
-            {avatarSrc
-              ? <img src={avatarSrc} alt={displayName} referrerPolicy="no-referrer" onError={e => { e.target.style.display = 'none' }} />
-              : <div className="profile-avatar-fallback">{displayName.slice(0, 2).toUpperCase()}</div>
-            }
-          </div>
-          {isOwnProfile && (
-            <>
-              <button className="profile-avatar-edit" onClick={() => fileRef.current?.click()} title="Changer l'avatar">📷</button>
-              <input ref={fileRef} type="file" accept="image/*" hidden onChange={handleAvatarUpload} />
-            </>
-          )}
-        </div>
-
-        <div className="profile-hero-info">
-          <div className="profile-hero-tag">PROFIL JOUEUR</div>
-          <h1 className="profile-hero-name">{displayName}</h1>
-          <ProfileSocials social={profile?.social} />
-          <div className="profile-hero-meta">
-            {favTeam ? (
-              <button
-                className="profile-hero-team"
-                style={{ '--tc': accentColor }}
-                onClick={() => isOwnProfile && setShowTeamPicker(true)}
-              >
-                {favTeam.logo && <img src={favTeam.logo} alt="" referrerPolicy="no-referrer" />}
-                <span>Fan de <strong>{favTeam.name}</strong></span>
-              </button>
-            ) : isOwnProfile ? (
-              <button className="profile-hero-team profile-hero-team-empty" onClick={() => setShowTeamPicker(true)}>
-                ⚑ Choisir une équipe favorite
-              </button>
-            ) : null}
-            {primaryAcc?.region && (
-              <div className="profile-hero-region">
-                <span className="profile-hero-region-dot" />
-                {primaryAcc.region}
-              </div>
+          <div className="profile-avatar-wrap">
+            <div className="profile-avatar" style={{ borderColor: accentColor + '50' }}>
+              {avatarSrc
+                ? <img src={avatarSrc} alt={displayName} referrerPolicy="no-referrer" onError={e => { e.target.style.display = 'none' }} />
+                : <div className="profile-avatar-fallback">{displayName.slice(0, 2).toUpperCase()}</div>
+              }
+            </div>
+            {isOwnProfile && (
+              <>
+                <button className="profile-avatar-edit" onClick={() => fileRef.current?.click()} title="Changer l'avatar">📷</button>
+                <input ref={fileRef} type="file" accept="image/*" hidden onChange={handleAvatarUpload} />
+              </>
             )}
           </div>
 
-          {isOwnProfile && favTeam && (
-            <button className="profile-hero-team-remove" onClick={handleRemoveTeam}>
-              ✕ Retirer l'équipe
-            </button>
-          )}
-        </div>
+          <div className="profile-hero-info">
+            <div className="profile-hero-tag">PROFIL JOUEUR</div>
+            <h1 className="profile-hero-name">{displayName}</h1>
+            {equippedTitleText && (
+              <div className="profile-hero-title">✦ {equippedTitleText}</div>
+            )}
+            <ProfileSocials social={profile?.social} />
+            <div className="profile-hero-meta">
+              {favTeam ? (
+                <button
+                  className="profile-hero-team"
+                  style={{ '--tc': accentColor }}
+                  onClick={() => isOwnProfile && setShowTeamPicker(true)}
+                >
+                  {favTeam.logo && <img src={favTeam.logo} alt="" referrerPolicy="no-referrer" />}
+                  <span>Fan de <strong>{favTeam.name}</strong></span>
+                </button>
+              ) : isOwnProfile ? (
+                <button className="profile-hero-team profile-hero-team-empty" onClick={() => setShowTeamPicker(true)}>
+                  ⚑ Choisir une équipe favorite
+                </button>
+              ) : null}
+              {primaryAcc?.region && (
+                <div className="profile-hero-region">
+                  <span className="profile-hero-region-dot" />
+                  {primaryAcc.region}
+                </div>
+              )}
+            </div>
+
+            {isOwnProfile && favTeam && (
+              <button className="profile-hero-team-remove" onClick={handleRemoveTeam}>
+                ✕ Retirer l'équipe
+              </button>
+            )}
+          </div>
           <BannerStickers
-          userId={profile?.id}
-          isOwnProfile={isOwnProfile}
-        />
+            userId={profile?.id}
+            isOwnProfile={isOwnProfile}
+          />
         </div>{/* fin .profile-hero */}
       </div>{/* fin .profile-banner */}
 
-      {/* ─── STAT STRIP (zone séparée) ─── */}
+      {/* ─── STAT STRIP ─── */}
       <div className="profile-stats-wrap">
         <div className="profile-stat-strip">
           <div className="pss-item">
@@ -431,12 +454,11 @@ export default function Profile() {
           <div className="pss-item">
             <div className="pss-val">{stats.total}</div>
             <div className="pss-lbl">Total paris</div>
+          </div>
         </div>
-        </div>
-      </div>{/* fin .profile-stats-wrap */}
+      </div>
 
       {/* ─── COMPTE RIOT PRINCIPAL ─── */}
-
       {primaryAcc && (
         <div className="profile-main-riot" style={{ '--tier-color': tierColor }}>
           <div className="pmr-glow" style={{ background: `radial-gradient(circle at 80% 50%, ${tierColor}22, transparent 60%)` }} />
@@ -481,7 +503,7 @@ export default function Profile() {
         </div>
       )}
 
-      {/* ─── COMPTES SECONDAIRES (compacts) ─── */}
+      {/* ─── COMPTES SECONDAIRES ─── */}
       {(otherAccs.length > 0 || (canAddMore && isOwnProfile)) && (
         <div className="profile-secondary-riots">
           <div className="psr-header">
@@ -537,7 +559,6 @@ export default function Profile() {
         </div>
       )}
 
-      {/* Cas spécial : aucun compte du tout */}
       {riotAccounts.length === 0 && isOwnProfile && (
         <div className="profile-no-riot">
           <div className="profile-no-riot-icon">🎮</div>
@@ -583,7 +604,6 @@ export default function Profile() {
             </div>
           </div>
 
-          {/* Solde rapide */}
           {isOwnProfile && (
             <div className="profile-card profile-card-balance">
               <div className="profile-card-label">Solde actuel</div>
@@ -620,7 +640,6 @@ export default function Profile() {
               </button>
             </div>
 
-            {/* Tab Paris */}
             {rightTab === 'bets' && (
               <div className="profile-bets-scroll">
                 {betsLoading && <div className="profile-bets-empty">Chargement…</div>}
@@ -675,7 +694,6 @@ export default function Profile() {
               </div>
             )}
 
-            {/* Tab Cartes */}
             {rightTab === 'cards' && (
               <div className="profile-tcg-scroll">
                 {!isOwnProfile && <div className="profile-bets-empty">Collection privée.</div>}
@@ -687,8 +705,14 @@ export default function Profile() {
                 )}
                 {isOwnProfile && userCards.length > 0 && (
                   <div className="profile-tcg-grid">
-                    {userCards.map(uc => (
-                      <TcgCard key={uc.id} card={uc.card} size="sm" />
+                    {sortedUserCards.map(uc => (
+                      <div
+                        key={uc.id}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => setZoomedCard({ card: uc.card, quantity: uc.quantity, userCardId: uc.id })}
+                      >
+                        <TcgCard card={uc.card} size="sm" minimal />
+                      </div>
                     ))}
                   </div>
                 )}
@@ -728,6 +752,22 @@ export default function Profile() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ─── ZOOM MODAL ─── */}
+      {zoomedCard && (
+        <TcgCardModal
+          card={zoomedCard.card}
+          quantity={zoomedCard.quantity}
+          userCardId={zoomedCard.userCardId}
+          equippedTitleId={equippedTitleId}
+          onTitleChange={(newId) => {
+            updateUser?.({ equipped_title_id: newId })
+            // Refresh le profile entier pour récupérer aussi equipped_title_text
+            loadProfile()
+          }}
+          onClose={() => setZoomedCard(null)}
+        />
       )}
 
     </div>

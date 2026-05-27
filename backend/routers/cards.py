@@ -71,6 +71,8 @@ def get_my_cards(
                 "is_title":      uc.card.is_title,
                 "title_text":    uc.card.title_text,
                 "collection":    uc.card.collection,
+                "artist":        uc.card.artist,
+                "lore":          uc.card.lore,
             },
         }
         for uc in user_cards
@@ -179,6 +181,8 @@ def collection_progress(
                 "is_title":      c.is_title,
                 "title_text":    c.title_text,
                 "collection":    c.collection,
+                "artist":        c.artist,
+                "lore":          c.lore,
             },
             "owned":        uc is not None,
             "quantity":     uc.quantity if uc else 0,
@@ -334,6 +338,51 @@ def _equipped_stickers_for(db: Session, user_id: int) -> list:
                 "rarity":    uc.card.rarity,
                 "image_url": uc.card.image_url,
                 "type":      uc.card.type,
+                "collection": uc.card.collection,
+                "artist":    uc.card.artist,
+                "lore":      uc.card.lore,
             },
         })
     return out
+
+# ═══════════════════════════════════════════════════════════
+# TITRES — équipe / déséquipe (POST + DELETE /equip-title)
+# ═══════════════════════════════════════════════════════════
+
+class EquipTitleSchema(BaseModel):
+    user_card_id: int
+
+@router.post("/equip-title")
+def equip_title(
+    body: EquipTitleSchema,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    uc = (
+        db.query(UserCard)
+        .filter(UserCard.id == body.user_card_id, UserCard.user_id == current_user.id)
+        .first()
+    )
+    if not uc:
+        raise HTTPException(404, "Carte introuvable dans ton inventaire")
+    if not uc.card.is_title:
+        raise HTTPException(400, "Cette carte n'est pas un titre")
+
+    current_user.equipped_title_id = uc.card.id
+    db.commit()
+
+    return {
+        "success":           True,
+        "equipped_title_id": uc.card.id,
+        "title_text":        uc.card.title_text,
+    }
+
+
+@router.delete("/equip-title")
+def unequip_title(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    current_user.equipped_title_id = None
+    db.commit()
+    return {"success": True}

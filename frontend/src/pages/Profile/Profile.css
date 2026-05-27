@@ -39,6 +39,25 @@
 .profile-hero-region-dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 6px #22c55e80; }
 .profile-hero-team-remove { background: none; border: none; color: #4b5563; font-family: 'Inter', sans-serif; font-size: 11px; cursor: pointer; padding: 0; margin-top: 6px; align-self: flex-start; transition: color 0.2s; }
 .profile-hero-team-remove:hover { color: #ef4444; }
+.profile-hero-socials { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+/* Remplace cette règle existante : */
+.profile-hero-socials a:hover { 
+  background: #65BD6215; 
+  border-color: #65BD6240; 
+  transform: translateY(-2px); 
+  box-shadow: 0 4px 16px #65BD6225; 
+}
+
+/* Par celle-ci (qui utilise tes variables dynamiques) : */
+.profile-hero-socials a:hover { 
+  background: color-mix(in srgb, var(--sc) 15%, transparent); /* Fond léger transparent de la couleur du réseau */
+  border-color: var(--sc); /* Bordure pleine de la couleur du réseau */
+  color: var(--sc); /* L'icône SVG prend la couleur du réseau */
+  transform: translateY(-2px); 
+  box-shadow: 0 6px 14px -4px color-mix(in srgb, var(--sc) 40%, transparent); 
+}
+/* ─── Titre équipé sous le username ─── */
+.profile-hero-title { font-family:'Outfit', sans-serif; font-size:14px; font-weight:700; color:#c89b3c; letter-spacing:1.2px; margin-top:-2px; margin-bottom:6px; text-shadow:0 0 12px #c89b3c30; text-transform:uppercase; }
 
 /* ─── STATS WRAP (zone séparée sous la bannière) ─── */
 .profile-stats-wrap { max-width: 1280px; margin: 0 auto; padding: 24px 48px 0; }

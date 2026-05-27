@@ -153,6 +153,13 @@ async def get_my_profile(
     # Migration au vol (idempotent)
     await _ensure_riot_accounts_migrated(current_user, db)
 
+    equipped_title_text = None
+    if current_user.equipped_title_id:
+        from models.card import Card
+        title_card = db.query(Card).filter(Card.id == current_user.equipped_title_id).first()
+        if title_card:
+            equipped_title_text = title_card.title_text or title_card.name
+
     return {
         "id":            current_user.id,
         "username":      current_user.username,
@@ -184,6 +191,8 @@ async def get_my_profile(
             "instagram_handle": current_user.instagram_handle,
         },
         "equipped_stickers": _equipped_stickers_for(db, current_user.id),
+        "equipped_title_id":   current_user.equipped_title_id,
+        "equipped_title_text": equipped_title_text,
     }
 
 # ─── GET /user/:id (profil public) ──────────────────────────
@@ -217,6 +226,8 @@ def get_public_profile(
             "instagram_handle": user.instagram_handle,
         },
         "equipped_stickers": _equipped_stickers_for(db, user.id),
+        "equipped_title_id":   current_user.equipped_title_id,
+        "equipped_title_text": equipped_title_text,
     }
 
 # ─── POST /set-team ──────────────────────────────────────────

@@ -1,0 +1,113 @@
+/* ════ OVERLAY ════ */
+.tcm-overlay { position:fixed; inset:0; background:#000000d8; backdrop-filter:blur(12px); z-index:9999; display:flex; align-items:center; justify-content:center; padding:24px; animation:tcm-fade 0.25s ease both; }
+
+@keyframes tcm-fade            { from { opacity:0; } to { opacity:1; } }
+@keyframes tcm-pop             { from { opacity:0; transform:scale(0.9) translateY(20px); } to { opacity:1; transform:scale(1) translateY(0); } }
+@keyframes tcm-border-pulse    { 0%,100% { box-shadow:0 30px 60px #000000b0, 0 0 32px var(--rc)25; } 50% { box-shadow:0 30px 60px #000000b0, 0 0 50px var(--rc)45; } }
+@keyframes tcm-border-pulse-leg{ 0%,100% { box-shadow:0 30px 60px #000000b0, 0 0 50px #c89b3c50, 0 0 100px #c89b3c25; } 50% { box-shadow:0 30px 60px #000000b0, 0 0 80px #e2b14770, 0 0 140px #c89b3c35; } }
+@keyframes tcm-confetti-fall   { 0% { transform:translate(var(--x0), -40px) rotate(0deg); opacity:0; } 5% { opacity:1; } 90% { opacity:1; } 100% { transform:translate(var(--x1), 540px) rotate(var(--rot)); opacity:0; } }
+@keyframes tcm-glow-orbit      { 0% { transform:rotate(0deg); } 100% { transform:rotate(360deg); } }
+
+.tcm-close { position:fixed; top:24px; right:24px; width:44px; height:44px; border-radius:12px; background:#1a1a1add; border:1px solid #ffffff15; color:#e8eaf0; font-size:18px; cursor:pointer; transition:all 0.2s; z-index:10000; display:flex; align-items:center; justify-content:center; }
+.tcm-close:hover { background:#ef444425; border-color:#ef4444; color:#ef4444; transform:scale(1.05); }
+
+/* ════ CONTENT ════ */
+.tcm-content { display:grid; grid-template-columns:auto 420px; gap:48px; max-width:1100px; width:100%; align-items:center; animation:tcm-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+/* ════ COLONNE CARTE ════ */
+.tcm-card-col { display:flex; flex-direction:column; align-items:center; gap:16px; position:relative; }
+
+/* Halo qui tourne autour de la carte */
+.tcm-card-col::before { content:''; position:absolute; width:520px; height:520px; top:50%; left:50%; margin-left:-260px; margin-top:-260px; background:conic-gradient(from 0deg, var(--rc)00, var(--rc)45, var(--rc)00, var(--rc)35, var(--rc)00); border-radius:50%; animation:tcm-glow-orbit 14s linear infinite; filter:blur(60px); opacity:var(--halo-strength, 0.25); pointer-events:none; z-index:0; }
+
+.tcm-card-wrap { width:340px; height:476px; perspective:1400px; cursor:grab; user-select:none; position:relative; z-index:1; }
+.tcm-card-wrap.dragging { cursor:grabbing; }
+
+.tcm-card-3d { width:100%; height:100%; position:relative; transform-style:preserve-3d; transition:transform 0.15s ease-out; will-change:transform; }
+.tcm-card-wrap.dragging .tcm-card-3d { transition:none; }
+
+/* ── BORDURE SOLIDE + GLOW PULSANT ── */
+.tcm-face { position:absolute; inset:0; backface-visibility:hidden; border-radius:18px; overflow:hidden; border:3px solid var(--rc); animation:tcm-border-pulse 3.5s ease-in-out infinite; }
+.tcm-card-wrap.is-legendary .tcm-face { border-color:#e2b147; animation:tcm-border-pulse-leg 2.8s ease-in-out infinite; }
+
+.tcm-front { background:#0a0a0a; display:flex; align-items:center; justify-content:center; }
+.tcm-front img { max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; display:block; pointer-events:none; }
+.tcm-back  { background:#0a0a0a; transform:rotateY(180deg); }
+.tcm-back img { width:100%; height:100%; object-fit:cover; display:block; pointer-events:none; }
+
+/* ── GLINT propre (spot lumineux qui suit la souris) ── */
+.tcm-glint { position:absolute; inset:0; pointer-events:none; background:radial-gradient(circle 180px at var(--mx, 50%) var(--my, 50%), var(--glint-color, rgba(255,255,255,0.25)) 0%, var(--glint-color-fade, rgba(255,255,255,0.08)) 35%, transparent 65%); mix-blend-mode:overlay; opacity:0; transition:opacity 0.3s; }
+.tcm-card-wrap:hover .tcm-glint { opacity:var(--glint-strength, 1); }
+.tcm-card-wrap.dragging .tcm-glint { opacity:0; }
+
+/* Intensité glint + halo selon rareté */
+.tcm-card-wrap.is-common    { --glint-strength:0.6;  --halo-strength:0.15; }
+.tcm-card-wrap.is-rare      { --glint-strength:0.85; --halo-strength:0.25; }
+.tcm-card-wrap.is-epic      { --glint-strength:1;    --halo-strength:0.35; }
+.tcm-card-wrap.is-legendary { --glint-strength:1;    --halo-strength:0.55; --glint-color:rgba(255,225,140,0.45); --glint-color-fade:rgba(255,200,90,0.15); }
+
+/* ── CONFETTIS (legendary uniquement) ── */
+.tcm-confetti-layer { position:absolute; inset:-20px -20px 60px -20px; pointer-events:none; overflow:hidden; z-index:3; }
+.tcm-confetti { position:absolute; top:0; width:7px; height:11px; border-radius:1.5px; animation:tcm-confetti-fall var(--dur, 4s) linear infinite; animation-delay:var(--delay, 0s); will-change:transform; }
+
+.tcm-hint { display:flex; align-items:center; gap:12px; font-family:'Inter', sans-serif; font-size:11px; color:#6b7280; letter-spacing:0.3px; z-index:1; }
+.tcm-reset { background:#c89b3c18; border:1px solid #c89b3c40; color:#e2b147; font-family:'Outfit', sans-serif; font-weight:700; font-size:11px; padding:4px 12px; border-radius:6px; cursor:pointer; transition:all 0.15s; }
+.tcm-reset:hover { background:#c89b3c30; color:#fff; }
+
+/* ════ COLONNE INFO ════ */
+.tcm-info-col { display:flex; flex-direction:column; gap:18px; max-height:80vh; overflow-y:auto; padding-right:8px; }
+.tcm-info-col::-webkit-scrollbar { width:4px; }
+.tcm-info-col::-webkit-scrollbar-thumb { background:#ffffff15; border-radius:2px; }
+
+.tcm-rarity-badge { display:inline-block; align-self:flex-start; padding:5px 14px; border-radius:6px; background:var(--rc)18; border:1px solid var(--rc)50; color:var(--rc); font-family:'Outfit', sans-serif; font-weight:900; font-size:11px; letter-spacing:2.5px; }
+
+.tcm-name { font-family:'Outfit', sans-serif; font-size:36px; font-weight:900; color:#e8eaf0; margin:0; line-height:1.1; letter-spacing:-1px; }
+
+.tcm-meta { display:flex; align-items:center; gap:10px; font-family:'Inter', sans-serif; font-size:13px; color:#9ca3af; flex-wrap:wrap; }
+.tcm-meta-item { padding:3px 10px; background:#ffffff06; border:1px solid #ffffff10; border-radius:6px; }
+.tcm-meta-coll { color:#c89b3c; border-color:#c89b3c30; background:#c89b3c10; }
+.tcm-meta-sep  { color:#4b5563; }
+
+/* ════ SECTIONS ════ */
+.tcm-section { display:flex; flex-direction:column; gap:8px; padding-top:14px; border-top:1px solid #ffffff08; }
+.tcm-section-title { font-family:'Outfit', sans-serif; font-size:11px; font-weight:800; letter-spacing:2px; color:#6b7280; text-transform:uppercase; }
+
+.tcm-effect-box { background:linear-gradient(135deg, #00e5ff08, #00e5ff03); border:1px solid #00e5ff25; border-radius:10px; padding:14px; }
+.tcm-effect-boost { font-family:'Outfit', sans-serif; font-size:28px; font-weight:900; color:#00e5ff; line-height:1; margin-bottom:6px; }
+.tcm-effect-cond { font-family:'Inter', sans-serif; font-size:12px; color:#9ca3af; line-height:1.4; }
+
+.tcm-cosm-tags { display:flex; gap:8px; flex-wrap:wrap; }
+.tcm-cosm { font-family:'Inter', sans-serif; font-size:11px; color:#c89b3c; background:#c89b3c12; border:1px solid #c89b3c30; border-radius:6px; padding:4px 10px; font-weight:600; }
+.tcm-title-preview { font-family:'Inter', sans-serif; font-size:13px; color:#c89b3c; font-style:italic; }
+
+.tcm-lore { font-family:'Inter', sans-serif; font-size:13px; line-height:1.6; color:#c9c9c9; font-style:italic; white-space:pre-wrap; }
+
+.tcm-artist { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:#ffffff04; border:1px solid #ffffff08; border-radius:8px; }
+.tcm-artist-label { font-family:'Inter', sans-serif; font-size:11px; color:#6b7280; letter-spacing:1px; text-transform:uppercase; }
+.tcm-artist-name { font-family:'Outfit', sans-serif; font-size:13px; font-weight:700; color:#e8eaf0; }
+
+.tcm-quantity { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:#65BD6208; border:1px solid #65BD6225; border-radius:8px; }
+.tcm-qty-label { font-family:'Inter', sans-serif; font-size:11px; color:#6b7280; letter-spacing:1px; text-transform:uppercase; }
+.tcm-qty-val { font-family:'Outfit', sans-serif; font-size:18px; font-weight:900; color:#65BD62; }
+
+/* ─── Bouton equip titre ─── */
+.tcm-equip-btn { margin-top:10px; width:100%; padding:12px 16px; background:linear-gradient(180deg, #c89b3c, #a47b2c); border:1px solid #c89b3c; color:#0f0f0f; font-family:'Outfit', sans-serif; font-weight:800; font-size:13px; letter-spacing:0.5px; border-radius:9px; cursor:pointer; transition:all 0.2s ease; box-shadow:0 4px 14px #c89b3c30; }
+.tcm-equip-btn:hover:not(:disabled) { background:linear-gradient(180deg, #e2b147, #c89b3c); transform:translateY(-1px); box-shadow:0 6px 20px #c89b3c50; }
+.tcm-equip-btn:disabled { opacity:0.6; cursor:not-allowed; }
+.tcm-equip-btn.is-equipped { background:linear-gradient(180deg, #65BD62, #4ea34c); border-color:#65BD62; color:#0f0f0f; box-shadow:0 4px 14px #65BD6230; }
+.tcm-equip-btn.is-equipped:hover:not(:disabled) { background:linear-gradient(180deg, #ef4444, #c33333); border-color:#ef4444; color:#fff; box-shadow:0 6px 20px #ef444450; }
+
+/* ════ RESPONSIVE ════ */
+@media (max-width: 960px) {
+  .tcm-content { grid-template-columns:1fr; gap:24px; }
+  .tcm-card-wrap { width:280px; height:392px; }
+  .tcm-info-col { max-height:none; padding-right:0; }
+  .tcm-name { font-size:28px; }
+  .tcm-card-col::before { width:400px; height:400px; margin-left:-200px; margin-top:-200px; }
+}
+
+@media (max-width: 480px) {
+  .tcm-overlay { padding:12px; }
+  .tcm-close { top:12px; right:12px; width:36px; height:36px; }
+  .tcm-card-wrap { width:240px; height:336px; }
+}

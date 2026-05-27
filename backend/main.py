@@ -34,6 +34,7 @@ from routers import odds_debug
 from routers import coachdiff
 from routers import lootbox
 from routers import promo
+from routers import cards
 # Services
 from services.esports_sync import sync_all_teams
 from services.champion_winrate_collector import refresh_champion_winrates
@@ -175,6 +176,7 @@ app.include_router(admin_jobs.router)
 app.include_router(coachdiff.router)
 app.include_router(social.router)
 app.include_router(lootbox.router)
+app.include_router(cards.router)
 app.include_router(promo.router)
 
 

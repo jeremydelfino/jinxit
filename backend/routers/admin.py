@@ -126,6 +126,8 @@ def list_cards(db: Session = Depends(get_db)):
             "is_title": c.is_title,
             "title_text": c.title_text,
             "collection": c.collection,
+            "artist": c.artist,
+            "lore": c.lore,
         }
         for c in cards
     ]
@@ -146,6 +148,8 @@ async def create_card(
     is_title:      bool          = Form(False),
     title_text:    Optional[str] = Form(None),
     collection:    Optional[str] = Form(None),
+    artist:         Optional[str] = Form(None),
+    lore:           Optional[str] = Form(None),
     # Image
     file:          UploadFile    = File(...),
     db:            Session       = Depends(get_db),
@@ -176,6 +180,8 @@ async def create_card(
         is_title=is_title,
         collection=collection,
         title_text=title_text,
+        artist=artist,
+        lore=lore,
     )
     db.add(card)
     db.commit()
@@ -187,17 +193,35 @@ async def create_card(
         "name": card.name,
         "rarity": card.rarity,
         "image_url": card.image_url,
+        "artist": card.artist,
+        "lore": card.lore,
     }
 
 @router.delete("/cards/{card_id}")
 def delete_card(card_id: int, db: Session = Depends(get_db)):
+    from models.user_card import UserCard
+    from models.lootbox import LootBox
+
     card = db.query(Card).filter(Card.id == card_id).first()
     if not card:
         raise HTTPException(404, "Carte introuvable")
+
+    db.query(LootBox).filter(LootBox.opened_card_id == card_id).update(
+        {"opened_card_id": None}, synchronize_session=False
+    )
+
+    user_cards_deleted = db.query(UserCard).filter(UserCard.card_id == card_id).delete(
+        synchronize_session=False
+    )
+
     db.delete(card)
     db.commit()
-    return {"success": True, "deleted": card.name}
 
+    return {
+        "success":            True,
+        "deleted":            card.name,
+        "user_cards_removed": user_cards_deleted,
+    }
 from models.card import Card
 
 @router.get("/collections")

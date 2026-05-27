@@ -41,7 +41,7 @@ def my_boxes(
                     "epic":      b.box_type.drop_epic,
                     "legendary": b.box_type.drop_legendary,
                 },
-                "collection_filter": t.collection_filter,
+                "collection_filter": b.box_type.collection_filter,
             },
         }
         for b in boxes
