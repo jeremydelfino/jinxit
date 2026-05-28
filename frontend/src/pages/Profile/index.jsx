@@ -210,6 +210,7 @@ export default function Profile() {
   const { userId }            = useParams()
   const { user, token, login, updateUser } = useAuthStore()
   const fileRef               = useRef(null)
+  const bannerRef = useRef(null)
 
   const isOwnProfile = !userId || (user && String(user.id) === String(userId))
 
@@ -364,7 +365,7 @@ export default function Profile() {
     <div className="profile-page">
 
       {/* ─── BANNER + HERO INTÉGRÉ ─── */}
-      <div className="profile-banner" style={{ '--accent': accentColor }}>
+      <div className="profile-banner" ref={bannerRef} style={{ '--accent': accentColor }}>
         <div className="profile-banner-bg" style={{ background: `linear-gradient(135deg, ${accentColor}28 0%, ${accentColor}08 35%, #171717 75%)` }} />
         {favTeam?.logo && (
           <img className="profile-banner-team-logo" src={favTeam.logo} alt={favTeam.name} referrerPolicy="no-referrer" />
@@ -389,7 +390,7 @@ export default function Profile() {
           </div>
 
           <div className="profile-hero-info">
-            <div className="profile-hero-tag">PROFIL JOUEUR</div>
+            <div className="profile-hero-tag">PROFIL JUNGLE GAP</div>
             <h1 className="profile-hero-name">{displayName}</h1>
             {equippedTitleText && (
               <div className="profile-hero-title">✦ {equippedTitleText}</div>
@@ -424,10 +425,11 @@ export default function Profile() {
               </button>
             )}
           </div>
-          <BannerStickers
-            userId={profile?.id}
-            isOwnProfile={isOwnProfile}
-          />
+            <BannerStickers
+              userId={profile?.id}
+              isOwnProfile={isOwnProfile}
+              bannerRef={bannerRef}
+            />
         </div>{/* fin .profile-hero */}
       </div>{/* fin .profile-banner */}
 

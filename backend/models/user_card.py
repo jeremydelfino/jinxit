@@ -16,6 +16,7 @@ class UserCard(Base):
     obtained_at    = Column(TIMESTAMP, server_default=func.now())
     position_x = Column(Integer, nullable=True)
     position_y = Column(Integer, nullable=True)
+    size = Column(String(10), default="medium")
 
     card = relationship("Card")
 

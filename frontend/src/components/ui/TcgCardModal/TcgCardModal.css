@@ -97,6 +97,38 @@
 .tcm-equip-btn.is-equipped { background:linear-gradient(180deg, #65BD62, #4ea34c); border-color:#65BD62; color:#0f0f0f; box-shadow:0 4px 14px #65BD6230; }
 .tcm-equip-btn.is-equipped:hover:not(:disabled) { background:linear-gradient(180deg, #ef4444, #c33333); border-color:#ef4444; color:#fff; box-shadow:0 6px 20px #ef444450; }
 
+/* ════ LORE (mis en avant) ════ */
+.tcm-lore-section { gap:10px; }
+.tcm-lore { position:relative; font-family:'Inter', sans-serif; font-size:15px; line-height:1.7; color:#e8e3d6; font-style:italic; white-space:pre-wrap; padding:16px 18px 16px 22px; background:linear-gradient(135deg, var(--rc)0e, #ffffff04); border:1px solid var(--rc)28; border-left:3px solid var(--rc); border-radius:10px; }
+.tcm-lore::before { content:'"'; position:absolute; top:-6px; left:8px; font-family:'Outfit', sans-serif; font-size:46px; font-weight:900; color:var(--rc); opacity:0.35; line-height:1; }
+
+/* ════ ARTISTE (mis en avant) ════ */
+.tcm-artist { display:flex; align-items:center; gap:14px; padding:14px 16px; background:linear-gradient(135deg, #c89b3c12, #c89b3c04); border:1px solid #c89b3c40; border-radius:12px; text-decoration:none; transition:all 0.2s ease; }
+.tcm-artist[href] { cursor:pointer; }
+.tcm-artist[href]:hover { background:linear-gradient(135deg, #c89b3c22, #c89b3c08); border-color:#e2b147; transform:translateY(-1px); box-shadow:0 6px 18px #c89b3c25; }
+.tcm-artist-avatar { flex-shrink:0; width:42px; height:42px; display:flex; align-items:center; justify-content:center; font-size:20px; background:#c89b3c18; border:1px solid #c89b3c40; border-radius:10px; }
+.tcm-artist-body { display:flex; flex-direction:column; gap:2px; flex:1; min-width:0; }
+.tcm-artist-label { font-family:'Inter', sans-serif; font-size:10px; color:#9a7a30; letter-spacing:1.5px; text-transform:uppercase; font-weight:600; }
+.tcm-artist-name { font-family:'Outfit', sans-serif; font-size:17px; font-weight:800; color:#e2b147; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tcm-artist-go { flex-shrink:0; font-size:16px; color:#c89b3c; }
+
+/* ════ CRÉDIT ARTISTE (vedette, en haut) ════ */
+.tcm-credit { position:relative; display:flex; align-items:center; gap:14px; padding:16px 18px; background:linear-gradient(135deg, #c89b3c1a, #c89b3c06); border:1px solid #c89b3c45; border-radius:14px; overflow:hidden; }
+.tcm-credit-glow { position:absolute; top:-50%; right:-20%; width:160px; height:200%; background:radial-gradient(circle, #e2b14730, transparent 70%); pointer-events:none; }
+.tcm-credit-avatar { flex-shrink:0; width:46px; height:46px; display:flex; align-items:center; justify-content:center; font-size:22px; background:#c89b3c1f; border:1px solid #c89b3c50; border-radius:12px; box-shadow:0 0 16px #c89b3c25; z-index:1; }
+.tcm-credit-body { display:flex; flex-direction:column; gap:3px; flex:1; min-width:0; z-index:1; }
+.tcm-credit-label { font-family:'Inter', sans-serif; font-size:10px; color:#b08d3e; letter-spacing:1.8px; text-transform:uppercase; font-weight:700; }
+.tcm-credit-name { font-family:'Outfit', sans-serif; font-size:20px; font-weight:900; color:#e2b147; line-height:1.1; letter-spacing:-0.3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tcm-credit-link { flex-shrink:0; display:inline-flex; align-items:center; gap:5px; padding:9px 15px; background:linear-gradient(180deg, #e2b147, #c89b3c); color:#1a1308; font-family:'Outfit', sans-serif; font-weight:800; font-size:12px; letter-spacing:0.3px; border-radius:9px; text-decoration:none; transition:all 0.2s ease; box-shadow:0 4px 14px #c89b3c35; z-index:1; }
+.tcm-credit-link:hover { background:linear-gradient(180deg, #f5d77a, #e2b147); transform:translateY(-1px); box-shadow:0 6px 20px #c89b3c55; }
+.tcm-credit-arrow { font-size:14px; }
+
+/* Mobile : crédit en colonne */
+@media (max-width: 480px) {
+  .tcm-credit { flex-wrap:wrap; }
+  .tcm-credit-link { width:100%; justify-content:center; }
+}
+
 /* ════ RESPONSIVE ════ */
 @media (max-width: 960px) {
   .tcm-content { grid-template-columns:1fr; gap:24px; }

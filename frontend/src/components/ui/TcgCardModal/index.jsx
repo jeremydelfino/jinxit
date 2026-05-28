@@ -233,16 +233,28 @@ export default function TcgCardModal({ card, quantity, userCardId, equippedTitle
           )}
 
           {card.lore && (
-            <div className="tcm-section">
+            <div className="tcm-section tcm-lore-section">
               <div className="tcm-section-title">📜 Lore</div>
               <div className="tcm-lore">{card.lore}</div>
             </div>
           )}
 
           {card.artist && (
-            <div className="tcm-artist">
-              <span className="tcm-artist-label">Artiste</span>
-              <span className="tcm-artist-name">{card.artist}</span>
+            <div className="tcm-credit">
+              <div className="tcm-credit-glow" />
+              <div className="tcm-credit-avatar">🎨</div>
+              <div className="tcm-credit-body">
+                <span className="tcm-credit-label">Illustration par</span>
+                <span className="tcm-credit-name">{card.artist}</span>
+              </div>
+              {(() => {
+                const url = card.lore?.match(/https?:\/\/\S+/)?.[0]
+                return url ? (
+                  <a className="tcm-credit-link" href={url} target="_blank" rel="noreferrer">
+                    Voir l'artiste <span className="tcm-credit-arrow">↗</span>
+                  </a>
+                ) : null
+              })()}
             </div>
           )}
 

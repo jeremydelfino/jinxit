@@ -209,7 +209,9 @@ export default function Game() {
   const red    = useMemo(() => processTeam(game?.red_team),  [game?.red_team,  processTeam])
   const jgBlue = useMemo(() => blue.find(p => p.role === 'JUNGLE'), [blue])
   const jgRed  = useMemo(() => red.find(p => p.role === 'JUNGLE'),  [red])
-  const betsOpen  = game?.status !== 'ended' && oddsReady
+  const BETS_CLOSE_AFTER = 300  // 5 min — fermeture des paris après le début de partie
+  const timeClosed = liveSeconds >= BETS_CLOSE_AFTER
+  const betsOpen   = game?.status !== 'ended' && oddsReady && !timeClosed
   // ── Sélections ────────────────────────────────────────────
   const toggle = (slug, value) => {
     if (!betsOpen) return

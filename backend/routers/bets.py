@@ -84,6 +84,10 @@ def place_bet(
         raise HTTPException(404, "Partie introuvable")
     if game.status != "live":
         raise HTTPException(400, "Cette partie est terminée")
+    # ── Fermeture des paris 5 min après le début de la partie ──
+    BETS_CLOSE_AFTER = 300  # secondes (gameLength Riot)
+    if (game.duration_seconds or 0) >= BETS_CLOSE_AFTER:
+        raise HTTPException(400, "Les paris sont fermés (partie commencée depuis plus de 5 minutes)")
         # ── Cotes prêtes ? (calcul async au démarrage de la game) ──
     if not game.odds_data:
         raise HTTPException(425, "Les cotes sont en cours de calcul, réessaie dans quelques secondes")

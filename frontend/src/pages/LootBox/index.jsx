@@ -287,23 +287,24 @@ export default function LootBox() {
               <div className="lb-stage-text">Ouverture en cours…</div>
             </div>
           )}
-          {revealed && (
-            <div
-              className={`lb-stage lb-stage-revealed lb-r-${revealed.rarity}`}
-              onClick={e => e.stopPropagation()}
-              style={{ '--rc': RARITY_META[revealed.rarity].color }}
-            >
-              <div className="lb-burst" />
-              <div className="lb-reveal-rarity">{RARITY_META[revealed.rarity].label.toUpperCase()}</div>
-              <div className="lb-reveal-card-wrap">
-                <TcgCard card={revealed} size="lg" />
+            {revealed && (
+              <div
+                className={`lb-reveal-stage lb-r-${revealed.rarity}`}
+                onClick={e => e.stopPropagation()}
+                style={{ '--rc': RARITY_META[revealed.rarity].color }}
+              >
+                <div className="lb-burst" />
+                <div className={`lb-reveal-card is-${revealed.rarity}`}>
+                  <div className="lb-reveal-face">
+                    <img src={revealed.image_url} alt={revealed.name} referrerPolicy="no-referrer" />
+                    <div className="lb-reveal-glint" />
+                  </div>
+                </div>
+                <button className="lb-btn-primary lb-btn-continue" onClick={closeReveal}>
+                  Continuer <span className="lb-btn-shimmer" />
+                </button>
               </div>
-              <div className="lb-reveal-name">{revealed.name}</div>
-              <button className="lb-btn-primary lb-btn-continue" onClick={closeReveal}>
-                Continuer <span className="lb-btn-shimmer" />
-              </button>
-            </div>
-          )}
+            )}
         </div>
       )}
 

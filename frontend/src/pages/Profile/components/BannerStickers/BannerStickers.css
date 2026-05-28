@@ -49,6 +49,10 @@
 .bs-picker-empty-title      { font-family:'Outfit',sans-serif; font-size:20px; font-weight:800; color:#e8eaf0; margin-bottom:8px; }
 .bs-picker-empty-sub        { font-family:'Inter',sans-serif; font-size:14px; color:#6b7280; }
 
+.bs-sticker-size { position:absolute; top:-6px; left:-6px; width:22px; height:22px; border-radius:50%; background:#171717; color:#65BD62; border:2px solid #65BD6240; font-size:11px; line-height:1; cursor:pointer; opacity:0; transition:all 0.15s ease; font-family:'Outfit',sans-serif; font-weight:800; display:flex; align-items:center; justify-content:center; padding:0; z-index:6; }
+.bs-sticker:hover .bs-sticker-size { opacity:1; }
+.bs-sticker-size:hover { background:#65BD62; color:#0d1a0d; transform:scale(1.1); }
+
 /* Sur mobile : stickers plus petits */
 @media (max-width: 720px) {
   .bs-sticker                { width:70px; height:70px; }

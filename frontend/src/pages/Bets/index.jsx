@@ -355,7 +355,7 @@ export default function Bets() {
       <div className="bets-header">
         <div className="bets-header-inner">
           <div>
-            <div className="bets-eyebrow">MES PARIS</div>
+            <div className="bets-eyebrow">MES PRÉDICTIONS</div>
             <div className="bets-title">Historique</div>
             <div className="bets-sub">{tickets.length + esportsBets.length} tickets au total</div>
           </div>
@@ -393,11 +393,11 @@ export default function Bets() {
         {/* ── Tabs ── */}
         <div className="bets-tabs">
           <button className={`bets-tab ${tab === 'esports' ? 'active' : ''}`} onClick={() => setTab('esports')}>
-            <span className="bets-tab-icon">🏆</span>Paris officiels
+            <span className="bets-tab-icon">🏆</span>Prédictions officielles
             <span className="bets-tab-count">{esportsBets.length}</span>
           </button>
           <button className={`bets-tab ${tab === 'games' ? 'active' : ''}`} onClick={() => setTab('games')}>
-            <span className="bets-tab-icon">🎮</span>Paris en game
+            <span className="bets-tab-icon">🎮</span>Prédictions en game
             <span className="bets-tab-count">{tickets.length}</span>
           </button>
         </div>
@@ -439,8 +439,8 @@ export default function Bets() {
             <div className="bets-empty-sub">
               {filter === 'all'
                 ? tab === 'esports'
-                  ? "Tu n'as pas encore parié sur des matchs officiels."
-                  : "Tu n'as pas encore placé de pari en game."
+                  ? "Tu n'as pas encore fait de prédictions sur des matchs officiels."
+                  : "Tu n'as pas encore fait de prédictions en game."
                 : `Aucun ticket « ${STATUS_CONFIG[filter]?.label} ».`}
             </div>
             {filter === 'all' && (

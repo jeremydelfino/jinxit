@@ -113,9 +113,9 @@ export default function Home() {
 
       {/* ─── HERO ─── */}
       <div className="hero">
-        <div className="hero-eyebrow">Paris fictifs · League of Legends</div>
+        <div className="hero-eyebrow">Jeux · League of Legends</div>
         <h1 className="hero-title">
-          Parie sur les<br />
+          Fais tes prédictions sur les<br />
           <span className="accent">parties en direct</span>
         </h1>
         <p className="hero-sub">

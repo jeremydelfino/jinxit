@@ -1158,15 +1158,18 @@ async def resolve_completed_matches(db: Session):
 
     for slug, lid in COVERED_LEAGUES.items():
         try:
-            tid = await lolesports.get_current_tournament_id(lid)
-            if not tid:
-                logger.warning(f"[resolve] {slug}: pas de tournament_id, skip")
+            tids = await lolesports.get_recent_tournament_ids(lid, window_days=90)
+            if not tids:
+                logger.warning(f"[resolve] {slug}: aucun tournoi récent, skip")
                 continue
-
-            ce     = await lolesports.get_completed_events(tid)
-            events = ce.get("data", {}).get("schedule", {}).get("events", [])
-            logger.info(f"[resolve] {slug}: tournament_id={tid}, {len(events)} completed events")
-
+            events = []
+            for tid in tids:
+                try:
+                    ce = await lolesports.get_completed_events(tid)
+                    events.extend(ce.get("data", {}).get("schedule", {}).get("events", []))
+                except Exception as e:
+                    logger.warning(f"[resolve] {slug} tid={tid}: échec getCompletedEvents — {e}")
+            logger.info(f"[resolve] {slug}: {len(tids)} tournoi(s) récent(s), {len(events)} completed events au total")
         except Exception as e:
             logger.error(f"[resolve] {slug}: erreur API — {e}")
             total_errors += 1

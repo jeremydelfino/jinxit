@@ -1,18 +1,38 @@
 import { useNavigate } from 'react-router-dom'
 import './Footer.css'
 
+/* ══════════════════════════════════════
+   ICÔNES — SVG line (stroke = currentColor)
+══════════════════════════════════════ */
+const Icon = ({ d, size = 15 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    {d}
+  </svg>
+)
+
+const ICONS = {
+  live:     <><circle cx="12" cy="12" r="3"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14M19.07 4.93a10 10 0 0 1 0 14.14M7.76 7.76a6 6 0 0 0 0 8.48M16.24 7.76a6 6 0 0 1 0 8.48"/></>,
+  leagues:  <><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22M18 2H6v7a6 6 0 0 0 12 0V2Z"/></>,
+  games:    <><line x1="6" y1="11" x2="10" y2="11"/><line x1="8" y1="9" x2="8" y2="13"/><line x1="15" y1="12" x2="15.01" y2="12"/><line x1="18" y1="10" x2="18.01" y2="10"/><rect x="2" y="6" width="20" height="12" rx="2"/></>,
+  bets:     <><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></>,
+  ranking:  <><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></>,
+  user:     <><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>,
+  login:    <><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></>,
+  register: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></>,
+}
+
 const LINKS = {
   platform: [
-    { label: 'Live',         path: '/',           icon: '⚡' },
-    { label: 'Ligues Pros',  path: '/betonpros',  icon: '🎖️' },
-    { label: 'Jeux',         path: '/games',      icon: '🎮' },
-    { label: 'Mes Paris',    path: '/bets',       icon: '🎯' },
-    { label: 'Classement',   path: '/leaderboard',icon: '🏆' },
+    { label: 'Live',        path: '/',            key: 'live' },
+    { label: 'Ligues Pros', path: '/betonpros',   key: 'leagues' },
+    { label: 'Jeux',        path: '/games',       key: 'games' },
+    { label: 'Mes Prédictions',   path: '/bets',        key: 'bets' },
+    { label: 'Classement',  path: '/leaderboard', key: 'ranking' },
   ],
   account: [
-    { label: 'Mon Profil',   path: '/profile',    icon: '👤' },
-    { label: 'Connexion',    path: '/login',      icon: '🔑' },
-    { label: 'S\'inscrire',  path: '/register',   icon: '✨' },
+    { label: 'Mon Profil',  path: '/profile',  key: 'user' },
+    { label: 'Connexion',   path: '/login',    key: 'login' },
+    { label: 'S\'inscrire', path: '/register', key: 'register' },
   ],
 }
 
@@ -42,9 +62,7 @@ export default function Footer() {
       {/* ─── SEPARATOR ─── */}
       <div className="footer-sep">
         <div className="footer-sep-line" />
-        <div className="footer-sep-emblem">
-          <span className="footer-sep-icon">🌿</span>
-        </div>
+        <span className="footer-sep-dot" />
         <div className="footer-sep-line" />
       </div>
 
@@ -59,25 +77,15 @@ export default function Footer() {
             <span className="footer-logo-dot" />
           </div>
           <p className="footer-tagline">
-            Le seul endroit où le <span className="footer-tagline-accent">Jungle Gap</span><br/>
+            Le seul endroit où la <span className="footer-tagline-accent">Jungle Gap</span><br/>
             se transforme en réussite.
           </p>
-          <div className="footer-stats-row">
-            <div className="footer-stat">
-              <span className="footer-stat-val">LCK</span>
-              <span className="footer-stat-label">Couvert</span>
-            </div>
-            <div className="footer-stat-divider" />
-            <div className="footer-stat">
-              <span className="footer-stat-val">LEC</span>
-              <span className="footer-stat-label">Couvert</span>
-            </div>
-            <div className="footer-stat-divider" />
-            <div className="footer-stat">
-              <span className="footer-stat-val">LFL</span>
-              <span className="footer-stat-label">Couvert</span>
-            </div>
+
+          <div className="footer-coverage">
+            <span className="footer-coverage-label">Couverture</span>
+            <span className="footer-coverage-leagues">LCK · LEC · LFL</span>
           </div>
+
           <div className="footer-socials">
             {SOCIALS.map(s => (
               <a key={s.label} href={s.href} className="footer-social-btn" title={s.label} target="_blank" rel="noopener noreferrer">
@@ -96,7 +104,7 @@ export default function Footer() {
           <div className="footer-links">
             {LINKS.platform.map(l => (
               <button key={l.path} className="footer-link" onClick={() => navigate(l.path)}>
-                <span className="footer-link-icon">{l.icon}</span>
+                <span className="footer-link-icon"><Icon d={ICONS[l.key]} /></span>
                 {l.label}
               </button>
             ))}
@@ -112,7 +120,7 @@ export default function Footer() {
           <div className="footer-links">
             {LINKS.account.map(l => (
               <button key={l.path} className="footer-link" onClick={() => navigate(l.path)}>
-                <span className="footer-link-icon">{l.icon}</span>
+                <span className="footer-link-icon"><Icon d={ICONS[l.key]} /></span>
                 {l.label}
               </button>
             ))}
@@ -126,7 +134,7 @@ export default function Footer() {
             À propos
           </div>
           <p className="footer-disclaimer">
-            Jungle Gap est une plateforme de paris <strong>virtuels</strong> et de jeu — aucune mise d'argent réel. Conçu pour les fans de LoL et d'Esports.
+            Jungle Gap est une plateforme d'amusement, de fun — Conçu pour les fans de LoL et d'Esports. Aucun argent réel n'est impliqué.
           </p>
           <div className="footer-riot-badge">
             <span className="footer-riot-dot" />
@@ -147,7 +155,7 @@ export default function Footer() {
             <span className="footer-bottom-j">J</span>G
           </div>
           <span className="footer-copyright">
-            © 2026 Jungle Gap · Plateforme de paris virtuels et d'amusement · Non affilié à Riot Games
+            © 2026 Jungle Gap · Plateforme pour la communauté League of Legends France. Tous droits réservés.
           </span>
           <div className="footer-bottom-links">
             <button className="footer-bottom-link">Mentions légales</button>

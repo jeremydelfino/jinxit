@@ -163,6 +163,18 @@
 /* ════════════════════════════════════════════════════════════ */
 /* REVEAL OVERLAY                                              */
 /* ════════════════════════════════════════════════════════════ */
+/* ── REVEAL CARD (style TcgCardModal) ── */
+.lb-reveal-stage             { position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; gap:28px; animation:lb-reveal-pop 0.8s cubic-bezier(0.34,1.56,0.64,1) both; }
+.lb-reveal-card              { position:relative; z-index:2; width:300px; height:420px; animation:lb-card-float 3s ease-in-out infinite; }
+.lb-reveal-face              { position:absolute; inset:0; border-radius:18px; overflow:hidden; border:3px solid var(--rc); background:#0a0a0a; display:flex; align-items:center; justify-content:center; box-shadow:0 30px 60px #000000b0, 0 0 40px var(--rc)45; animation:lb-reveal-pulse 3.5s ease-in-out infinite; }
+.lb-reveal-face img          { max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; display:block; }
+.lb-reveal-card.is-legendary .lb-reveal-face { border-color:#e2b147; animation:lb-reveal-pulse-leg 2.8s ease-in-out infinite; }
+.lb-reveal-glint             { position:absolute; inset:0; pointer-events:none; background:linear-gradient(115deg, transparent 30%, #ffffff22 48%, #ffffff33 50%, #ffffff22 52%, transparent 70%); animation:shimmer-move 3s ease-in-out infinite; }
+
+@keyframes lb-reveal-pulse     { 0%,100%{ box-shadow:0 30px 60px #000000b0, 0 0 32px var(--rc)25; } 50%{ box-shadow:0 30px 60px #000000b0, 0 0 55px var(--rc)55; } }
+@keyframes lb-reveal-pulse-leg { 0%,100%{ box-shadow:0 30px 60px #000000b0, 0 0 50px #c89b3c50, 0 0 100px #c89b3c25; } 50%{ box-shadow:0 30px 60px #000000b0, 0 0 80px #e2b14770, 0 0 140px #c89b3c35; } }
+@keyframes shimmer-move { 0%{transform:translateX(-120%)} 100%{transform:translateX(120%)} }
+
 .lb-overlay                  { position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center; animation:lb-fade-in 0.3s ease both; }
 .lb-overlay-bg               { position:absolute; inset:0; background:radial-gradient(circle at center, #000000cc 0%, #000000f0 100%); backdrop-filter:blur(10px); }
 .lb-stage                    { position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; gap:24px; }

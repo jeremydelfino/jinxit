@@ -27,6 +27,7 @@ class MoveStickerSchema(BaseModel):
     user_card_id: int
     position_x:   float
     position_y:   float
+    size:         str | None = None
 
 
 def _clamp(v: float) -> float:
@@ -273,12 +274,15 @@ def move_sticker(
 
     uc.position_x = _clamp(body.position_x)
     uc.position_y = _clamp(body.position_y)
+    if body.size in ("small", "medium", "large"):
+        uc.size = body.size
     db.commit()
 
     return {
         "success":    True,
         "position_x": float(uc.position_x),
         "position_y": float(uc.position_y),
+        "size":       uc.size,
     }
 
 
@@ -304,6 +308,7 @@ def unequip_sticker(
     uc.equipped   = False
     uc.position_x = None
     uc.position_y = None
+    uc.size = None
     db.commit()
     return {"success": True}
 
@@ -332,6 +337,7 @@ def _equipped_stickers_for(db: Session, user_id: int) -> list:
             "user_card_id": uc.id,
             "position_x":   float(uc.position_x) if uc.position_x is not None else 50.0,
             "position_y":   float(uc.position_y) if uc.position_y is not None else 50.0,
+            "size":         uc.size or "medium",
             "card": {
                 "id":        uc.card.id,
                 "name":      uc.card.name,

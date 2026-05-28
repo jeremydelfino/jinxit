@@ -26,6 +26,49 @@ CURRENT_TOURNAMENT_IDS = {
 
 ALL_LEAGUE_IDS = list(LEAGUE_IDS.values())
 
+# ─── Cache mémoire des tournois par ligue ────────────────────
+import time
+from datetime import datetime, timezone, timedelta
+
+_TOURNAMENTS_CACHE: dict[str, tuple[float, list[dict]]] = {}  # league_id -> (fetched_at, tournaments)
+_CACHE_TTL = 86400  # 24h
+
+async def get_recent_tournament_ids(
+    league_id: str,
+    window_days: int = 90,
+) -> list[str]:
+    """
+    Renvoie les IDs des tournois d'une ligue dont la fenêtre [start, end]
+    chevauche les `window_days` derniers jours (donc actifs ou récemment terminés).
+    Mis en cache 24h par ligue.
+    """
+    now_ts = time.time()
+    cached = _TOURNAMENTS_CACHE.get(league_id)
+    if cached and (now_ts - cached[0]) < _CACHE_TTL:
+        tournaments = cached[1]
+    else:
+        try:
+            data = await get_tournaments_for_league(league_id)
+            leagues = data.get("data", {}).get("leagues", [])
+            tournaments = [t for lg in leagues for t in lg.get("tournaments", [])]
+            _TOURNAMENTS_CACHE[league_id] = (now_ts, tournaments)
+        except Exception:
+            # En cas d'échec API, on réutilise le cache périmé s'il existe
+            tournaments = cached[1] if cached else []
+
+    today    = datetime.now(timezone.utc).date()
+    cutoff   = today - timedelta(days=window_days)
+    recent   = []
+    for t in tournaments:
+        try:
+            end = datetime.strptime(t.get("endDate", "")[:10], "%Y-%m-%d").date()
+        except Exception:
+            continue
+        # On garde tout tournoi qui s'est terminé après le cutoff (donc actif ou récent)
+        if end >= cutoff:
+            recent.append(t["id"])
+    return recent
+
 async def get_match_games(match_id: str) -> list[dict]:
     """
     Renvoie la liste des games d'un match avec leur résultat.
