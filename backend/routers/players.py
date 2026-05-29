@@ -15,6 +15,8 @@ from datetime import datetime, timedelta
 import httpx
 import asyncio
 from fastapi.responses import Response
+from deps import get_current_user_optional
+from routers.cards import _equipped_stickers_for
 
 from models.user_card import UserCard
 from models.card import Card
@@ -155,6 +157,7 @@ async def get_player(
     game_name: str,
     tag_line: str,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user_optional),
 ):
     region = region.upper()
 
@@ -434,7 +437,9 @@ async def get_player(
         "match_history":     matches,
         "overall_stats":     overall_stats,
         "pro_player":        pro_data,
-        "junglegap_profile": _build_junglegap_profile(player.riot_puuid, db),
+        "junglegap_profile": _build_junglegap_profile(
+            player.riot_puuid, db, current_user.id if current_user else None
+        ),
     }
 
 
@@ -459,7 +464,7 @@ def _minimal_team(participants: list, team_id: int) -> list:
 
 # ─── Helpers JungleGap profile ──────────────────────────────
 
-def _build_junglegap_profile(puuid: str, db: Session) -> dict | None:
+def _build_junglegap_profile(puuid: str, db: Session, current_user_id: int | None = None) -> dict | None:
     """Cherche un User lié à ce puuid (via riot_accounts ou User.riot_puuid legacy)."""
     user = (
         db.query(User)
@@ -470,7 +475,6 @@ def _build_junglegap_profile(puuid: str, db: Session) -> dict | None:
     if not user:
         return None
 
-    # Bet stats (réplique du helper de profile.py)
     bets       = db.query(Bet).filter(Bet.user_id == user.id).all()
     resolved   = [b for b in bets if b.status in ("won", "lost")]
     won        = [b for b in resolved if b.status == "won"]
@@ -483,7 +487,6 @@ def _build_junglegap_profile(puuid: str, db: Session) -> dict | None:
         if b.status == "won": streak += 1
         else: break
 
-    # Titre équipé
     equipped_title = None
     if user.equipped_title_id:
         title_card = db.query(Card).filter(Card.id == user.equipped_title_id).first()
@@ -496,6 +499,13 @@ def _build_junglegap_profile(puuid: str, db: Session) -> dict | None:
         "avatar_url":     user.avatar_url,
         "coins":          user.coins,
         "equipped_title": equipped_title,
+        "is_owner":       current_user_id is not None and user.id == current_user_id,
+        "favorite_team": {
+            "name":  user.favorite_team_name,
+            "logo":  user.favorite_team_logo,
+            "color": user.favorite_team_color,
+        } if user.favorite_team_name else None,
+        "equipped_stickers": _equipped_stickers_for(db, user.id),
         "bet_stats": {
             "total":   len(bets),
             "won":     len(won),

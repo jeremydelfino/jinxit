@@ -22,6 +22,22 @@ def get_current_user(
         raise HTTPException(401, "Utilisateur introuvable")
     return user
 
+def get_current_user_optional(
+    authorization: str | None = Header(None),
+    db: Session = Depends(get_db),
+) -> User | None:
+    """Comme get_current_user mais renvoie None au lieu de lever 401.
+    Permet aux routes publiques de personnaliser la réponse si l'user est connecté."""
+    if not authorization:
+        return None
+    token = authorization.replace("Bearer ", "").strip()
+    try:
+        payload = jwt.decode(token, os.getenv("SECRET_KEY"), algorithms=["HS256"])
+        user_id = int(payload["sub"])
+    except (JWTError, KeyError, ValueError):
+        return None
+    return db.query(User).filter(User.id == user_id).first()
+
 
 def get_admin_user(current_user: User = Depends(get_current_user)) -> User:
     if not current_user.is_admin:

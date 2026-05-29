@@ -1,21 +1,58 @@
 import './PlayerHero.css'
+import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import api from '../../../api/client'
 import { getRankLabel } from '../utils'
 import { TIER_COLORS, REGION_LABELS } from '../constants'
+import BannerStickers from '../../Profile/components/BannerStickers/index.jsx'
 
 export default function PlayerHero({
   player, pro_player,
   onRefresh, refreshing,
   isFav, onFavToggle, favLoading, canFav,
+  junglegap_profile,
+  onProfileChange,   // callback pour refetch quand on change la team favorite
 }) {
   const navigate    = useNavigate()
+  const bannerRef   = useRef(null)
   const tierColor   = TIER_COLORS[player.tier] || '#9ca3af'
   const accentColor = pro_player?.accent_color || '#65BD62'
 
+  const isOwner = junglegap_profile?.is_owner
+  const favTeam = junglegap_profile?.favorite_team
+
+  /* ─── Team picker ─── */
+  const [showTeamPicker, setShowTeamPicker] = useState(false)
+  const [esportsTeams,   setEsportsTeams]   = useState([])
+
+  useEffect(() => {
+    if (!isOwner) return
+    api.get('/esports/teams').then(r => setEsportsTeams(r.data)).catch(() => {})
+  }, [isOwner])
+
+  const handlePickTeam = async (team) => {
+    try {
+      await api.post('/profile/set-team', {
+        name: team.name, logo: team.logo_url || '', color: team.accent_color || '',
+      })
+      onProfileChange?.()
+    } catch (err) {
+      console.error('set-team:', err.response?.data || err)
+    }
+    setShowTeamPicker(false)
+  }
+
+  const handleRemoveTeam = async () => {
+    try {
+      await api.post('/profile/set-team', { name: '', logo: '', color: '' })
+      onProfileChange?.()
+    } catch (err) { console.error(err) }
+  }
+
   return (
     <div className="ph-wrap">
-      {/* ─── BANNER (grand fond avec logo team) ─── */}
-      <div className="ph-banner">
+      {/* ─── BANNER (grand fond avec logo team du pro player) ─── */}
+      <div className="ph-banner" ref={bannerRef}>
         <div
           className="ph-banner-bg"
           style={pro_player
@@ -32,7 +69,7 @@ export default function PlayerHero({
           />
         )}
 
-        {/* ─── HERO (intégré dans la bannière) ─── */}
+        {/* ─── HERO ─── */}
         <div className="ph-hero">
           <div className="ph-hero-left">
             {/* Photo */}
@@ -77,6 +114,22 @@ export default function PlayerHero({
                     {getRankLabel(player.tier, player.rank, player.lp)}
                   </span>
                 )}
+
+                {/* ─── Pilule team favorite (même style que Profile) ─── */}
+                {favTeam ? (
+                  <button
+                    className="profile-hero-team"
+                    style={{ '--tc': favTeam.color || '#65BD62' }}
+                    onClick={() => isOwner && setShowTeamPicker(true)}
+                  >
+                    {favTeam.logo && <img src={favTeam.logo} alt="" referrerPolicy="no-referrer" />}
+                    <span>Fan de <strong>{favTeam.name}</strong></span>
+                  </button>
+                ) : isOwner ? (
+                  <button className="profile-hero-team profile-hero-team-empty" onClick={() => setShowTeamPicker(true)}>
+                    ⚑ Choisir une équipe favorite
+                  </button>
+                ) : null}
               </div>
 
               <div className="ph-actions">
@@ -104,13 +157,59 @@ export default function PlayerHero({
                 <button className="ph-btn ph-btn-back" onClick={() => navigate('/')}>
                   ← Retour
                 </button>
+
+                {isOwner && favTeam && (
+                  <button className="profile-hero-team-remove" onClick={handleRemoveTeam}>
+                    ✕ Retirer l'équipe
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </div>
 
         <div className="ph-banner-overlay" />
+
+        {/* ─── STICKERS ─── */}
+        {junglegap_profile && (
+          <BannerStickers
+            userId={junglegap_profile.id}
+            isOwnProfile={junglegap_profile.is_owner}
+            bannerRef={bannerRef}
+          />
+        )}
       </div>
+
+      {/* ─── TEAM PICKER MODAL ─── */}
+      {showTeamPicker && (
+        <div className="profile-picker-overlay" onClick={() => setShowTeamPicker(false)}>
+          <div className="profile-picker-modal" onClick={e => e.stopPropagation()}>
+            <div className="profile-picker-header">
+              <div className="profile-picker-title">Choisis ton équipe favorite</div>
+              <button className="profile-picker-close" onClick={() => setShowTeamPicker(false)}>✕</button>
+            </div>
+            <div className="profile-picker-section">
+              <div className="profile-picker-teams">
+                {esportsTeams.map(team => {
+                  const selected = favTeam?.name === team.name
+                  return (
+                    <div
+                      key={team.name}
+                      className={`profile-picker-team ${selected ? 'selected' : ''}`}
+                      style={{ '--tc': team.accent_color || '#65BD62' }}
+                      onClick={() => handlePickTeam(team)}
+                    >
+                      {team.logo_url && <img className="profile-picker-logo" src={team.logo_url} alt={team.name} referrerPolicy="no-referrer" />}
+                      <div className="profile-picker-team-name">{team.name}</div>
+                      {selected && <div className="profile-picker-check">✓</div>}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

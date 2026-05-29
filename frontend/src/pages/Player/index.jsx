@@ -12,7 +12,7 @@ import StatsOverview    from './components/StatsOverview'
 import LiveGameCard     from './components/LiveGameCard'
 import MatchRow         from './components/MatchRow'
 import JungleGapSidebar from './components/JungleGapSidebar'
-import TeamRoster from './components/TeamRoster'
+import TeamRoster       from './components/TeamRoster'
 
 export default function Player() {
   const { region, name, tag } = useParams()
@@ -115,7 +115,7 @@ export default function Player() {
 
   const accentColor = pro_player?.accent_color || '#65BD62'
 
-return (
+  return (
     <div className="player-page">
 
       {/* ═══ HERO ═══ */}
@@ -128,6 +128,8 @@ return (
         onFavToggle={handleFavToggle}
         favLoading={favLoading}
         canFav={!!user}
+        junglegap_profile={junglegap_profile}
+        onProfileChange={() => loadPlayer(false)}
       />
 
       {/* ═══ MAIN ═══ */}
@@ -144,7 +146,7 @@ return (
           />
         )}
 
-        {/* ── Row 0 : Jungle Gap (mis en avant juste sous le hero) ── */}
+        {/* ── Row 0 : Jungle Gap ── */}
         <div className="player-row player-row-jg">
           <JungleGapSidebar
             junglegap_profile={junglegap_profile}

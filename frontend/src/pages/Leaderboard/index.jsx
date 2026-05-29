@@ -57,7 +57,7 @@ export default function Leaderboard() {
         <div className="lb-eyebrow">Classement global · junglegap</div>
         <h1 className="lb-title">
           Les meilleurs<br />
-          <span className="lb-accent">parieurs</span>
+          <span className="lb-accent">joueurs</span>
         </h1>
         <p className="lb-sub">Top 50 des joueurs avec le plus de coins</p>
         {user && userRank && (
