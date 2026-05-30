@@ -17,6 +17,8 @@ class CoachDiffGame(Base):
     user_side       = Column(String(10), nullable=False)
     bot_side        = Column(String(10), nullable=False)
 
+    opponent        = Column(String(10))   # KC | G2 | T1 (nullable pour les vieilles games)
+
     user_score      = Column(Float)
     bot_score       = Column(Float)
     user_breakdown  = Column(JSONB)

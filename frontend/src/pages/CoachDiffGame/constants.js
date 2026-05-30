@@ -31,3 +31,4 @@ export const PHASE_LABELS = {
 export const TURN_DURATION_S    = 30   // durée d'un tour user
 export const BOT_DELAY_MIN_MS   = 800  // délai mini avant action bot
 export const BOT_DELAY_MAX_MS   = 1800 // délai max avant action bot
+export const ROLE_ASSIGN_DURATION_S = 30   // temps max pour assigner les rôles

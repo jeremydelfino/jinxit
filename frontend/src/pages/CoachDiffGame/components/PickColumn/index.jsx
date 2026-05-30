@@ -1,33 +1,66 @@
 import './PickColumn.css'
 import { getChampSplash } from '../../utils'
-import { SIDE_LABELS } from '../../constants'
+import { SIDE_LABELS, LANES, LANE_LABELS, LANE_ICONS } from '../../constants'
 
-export default function PickColumn({ side, picks, version, isCurrentSlot }) {
-  const slots = Array.from({ length: 5 }, (_, i) => picks[i] || null)
+export default function PickColumn({
+  side, picks, isCurrentSlot,
+  assignMode = false, assignment = null, swapFrom = null, onSlotClick = null,
+}) {
   const sideLower = side.toLowerCase()
+  const list  = assignMode ? (assignment || []) : (picks || [])
+  const slots = Array.from({ length: 5 }, (_, i) => list[i] || null)
 
   return (
-    <div className={`cd-picks cd-picks-${sideLower}`}>
+    <div className={`cd-picks cd-picks-${sideLower} ${assignMode ? 'assign' : ''}`}>
       <div className={`cd-picks-header ${sideLower}`}>
-        {side === 'BLUE' && <span className={`cd-picks-bar ${sideLower}-bar`} />}
+        {side === 'BLUE' && <span className="cd-picks-bar blue-bar" />}
         <span className="cd-picks-label">{SIDE_LABELS[side]}</span>
-        {side === 'RED' && <span className={`cd-picks-bar ${sideLower}-bar`} />}
+        {side === 'RED' && <span className="cd-picks-bar red-bar" />}
       </div>
 
       <div className="cd-picks-list">
         {slots.map((champ, i) => {
-          const isActive = isCurrentSlot && i === picks.length
-          const splash = champ ? getChampSplash(champ) : null
+          const role         = LANES[i]
+          const splash       = champ ? getChampSplash(champ) : null
+          const isActive     = !assignMode && isCurrentSlot && i === (picks?.length || 0)
+          const isSwapFrom   = assignMode && swapFrom === i
+          const isSwapTarget = assignMode && swapFrom !== null && swapFrom !== i && !!champ
+          const clickable    = assignMode && !!champ
+
           return (
-            <div key={i} className={`cd-pick-slot ${sideLower} ${champ ? 'filled' : 'empty'} ${isActive ? 'active' : ''}`}>
+            <div
+              key={i}
+              className={[
+                'cd-pick-slot', sideLower,
+                champ ? 'filled' : 'empty',
+                isActive ? 'active' : '',
+                isSwapFrom ? 'swap-from' : '',
+                isSwapTarget ? 'swap-target' : '',
+                clickable ? 'clickable' : '',
+              ].filter(Boolean).join(' ')}
+              onClick={() => clickable && onSlotClick?.(i)}
+            >
               {champ ? (
                 <>
-                  {splash && <img src={splash} alt={champ} className="cd-pick-splash" referrerPolicy="no-referrer" onError={e => { e.target.style.display = 'none' }} />}
+                  {splash && (
+                    <img src={splash} alt={champ} className="cd-pick-splash"
+                         referrerPolicy="no-referrer" onError={e => { e.target.style.display = 'none' }} />
+                  )}
                   <div className={`cd-pick-fade ${sideLower === 'blue' ? 'fade-right' : 'fade-left'}`} />
+                  {assignMode && (
+                    <div className="cd-pick-role">
+                      <span className="cd-pick-role-ico">{LANE_ICONS[role]}</span>
+                      <span className="cd-pick-role-lbl">{LANE_LABELS[role]}</span>
+                    </div>
+                  )}
                   <div className={`cd-pick-name ${sideLower}`}>{champ}</div>
+                  {isSwapFrom   && <div className="cd-pick-swap-badge">Échanger avec…</div>}
+                  {isSwapTarget && <div className="cd-pick-swap-hint">↔ {LANE_LABELS[role]}</div>}
                 </>
               ) : (
-                <div className="cd-pick-empty">{i + 1}</div>
+                <div className="cd-pick-empty">
+                  {assignMode ? <span className="cd-pick-role-ico">{LANE_ICONS[role]}</span> : (i + 1)}
+                </div>
               )}
             </div>
           )

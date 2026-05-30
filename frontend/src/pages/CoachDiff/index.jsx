@@ -2,25 +2,26 @@ import './CoachDiff.css'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useAuthStore from '../../store/auth'
+import api from '../../api/client'
 import { startGame, getHistory } from '../../api/coachdiff'
 
 const ENTRY_COST = 5
-const WIN_PAYOUT = 10
 
-const RULES = [
-  { icon: '⚔️', title: 'Format tournoi', desc: '6 bans, 6 picks, puis 4 bans, 4 picks. Comme les pros.' },
-  { icon: '🤖', title: '1v1 contre un bot', desc: 'Le bot drafte aléatoirement pondéré par la tier list pro.' },
-  { icon: '🎯', title: 'Assigne les rôles', desc: 'À la fin, place tes champions sur leur lane (Top / Jungle / Mid / Adc / Support).' },
-  { icon: '💯', title: 'Score sur 100', desc: 'WR SoloQ, matchups, synergies et présence Pro sont évaluées. La meilleure draft gagne.' },
+const OPPONENTS = [
+  { code: 'KC', name: 'Karmine Corp', short: 'KC', diff: 'Facile',    level: 1, accent: '#1f8fff', tag: 'Drafts lisibles, laisse passer des erreurs' },
+  { code: 'G2', name: 'G2 Esports',   short: 'G2', diff: 'Moyen',     level: 2, accent: '#e8b53a', tag: 'Méta solide, punit tes écarts' },
+  { code: 'T1', name: 'T1',           short: 'T1', diff: 'Difficile', level: 3, accent: '#e3203a', tag: 'Drafts optimales, counters chirurgicaux' },
 ]
 
 export default function CoachDiff() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
-  const [loading, setLoading] = useState(true)
-  const [starting, setStarting] = useState(false)
+  const [loading, setLoading]       = useState(true)
+  const [starting, setStarting]     = useState(false)
   const [resumeGame, setResumeGame] = useState(null)
-  const [error, setError] = useState(null)
+  const [error, setError]           = useState(null)
+  const [logos, setLogos]           = useState({})
+  const [selected, setSelected]     = useState(null)
 
   /* ─── Détection partie en cours ─── */
   useEffect(() => {
@@ -34,12 +35,23 @@ export default function CoachDiff() {
       .finally(() => setLoading(false))
   }, [user])
 
+  /* ─── Logos équipes (depuis la DB esports) ─── */
+  useEffect(() => {
+    let alive = true
+    Promise.all(OPPONENTS.map(o =>
+      api.get(`/esports/teams/${o.code}`)
+        .then(r => [o.code, r.data?.logo_url || null])
+        .catch(() => [o.code, null])
+    )).then(pairs => { if (alive) setLogos(Object.fromEntries(pairs)) })
+    return () => { alive = false }
+  }, [])
+
   /* ─── Lancer ─── */
   const handleStart = async () => {
-    if (starting) return
+    if (starting || !selected) return
     setStarting(true); setError(null)
     try {
-      const game = await startGame()
+      const game = await startGame(selected)
       navigate(`/games/coachdiff/${game.id}`)
     } catch (e) {
       setError(e?.response?.data?.detail || 'Impossible de lancer la partie')
@@ -62,83 +74,86 @@ export default function CoachDiff() {
     )
   }
 
-  const canPay = (user.coins ?? 0) >= ENTRY_COST
+  const coins  = user.coins ?? 0
+  const canPay = coins >= ENTRY_COST
 
   return (
     <div className="cd-page">
+      <div className="cd-glow" aria-hidden="true" />
 
       {/* ─── HERO ─── */}
-      <section className="cd-hero">
-        <div className="cd-hero-eyebrow">JEU · COACHDIFF</div>
-        <h1 className="cd-hero-title">Drafte mieux que le bot</h1>
-        <p className="cd-hero-sub">"Draft diff gngngn..." On va voir si tes avis désastreux marcheraient vraiment</p>
-      </section>
+      <header className="cd-hero">
+        <div className="cd-eyebrow">COACHDIFF</div>
+        <h1 className="cd-title">Choisis ton adversaire</h1>
+      </header>
+
+        {/* ─── BUT DU JEU ─── */}
+        <div className="cd-howto">
+          <div className="cd-howto-goal"><span>🎯</span> Drafte une meilleure compo que le bot</div>
+          <div className="cd-howto-steps">
+            <div className="cd-step"><span className="cd-step-ico">⚔️</span><span>Bans &amp; picks façon tournois</span></div>
+            <span className="cd-step-arrow">→</span>
+            <div className="cd-step"><span className="cd-step-ico">🧩</span><span>Assigne tes rôles</span></div>
+            <span className="cd-step-arrow">→</span>
+            <div className="cd-step"><span className="cd-step-ico">🏆</span><span>Meilleure draft /100 gagne</span></div>
+          </div>
+        </div>
 
       {/* ─── REPRENDRE ─── */}
-      {!loading && resumeGame && (
-        <section className="cd-resume">
-          <div className="cd-resume-icon">⏸️</div>
-          <div className="cd-resume-body">
-            <div className="cd-resume-title">Tu as une partie en cours</div>
-            <div className="cd-resume-desc">Reprends là où tu t'étais arrêté.</div>
-          </div>
-          <button className="cd-btn-primary" onClick={handleResume}>Reprendre →</button>
-        </section>
+      {resumeGame && (
+        <button className="cd-resume" onClick={handleResume}>
+          <span className="cd-resume-dot" />
+          <span>Partie en cours — reprendre</span>
+          <span className="cd-resume-arrow">→</span>
+        </button>
       )}
 
-      {/* ─── RULES ─── */}
-      <section className="cd-section">
-        <div className="cd-section-title">Comment ça marche</div>
-        <div className="cd-rules">
-          {RULES.map(r => (
-            <div className="cd-rule" key={r.title}>
-              <div className="cd-rule-icon">{r.icon}</div>
-              <div className="cd-rule-title">{r.title}</div>
-              <div className="cd-rule-desc">{r.desc}</div>
-            </div>
-          ))}
-        </div>
-      </section>
+      {/* ─── TEAMS ─── */}
+      <div className="cd-teams">
+        {OPPONENTS.map((o, i) => {
+          const isSel = selected === o.code
+          return (
+            <button
+              key={o.code}
+              className={`cd-team ${isSel ? 'selected' : ''}`}
+              style={{ '--accent': o.accent, animationDelay: `${0.06 * i}s` }}
+              onClick={() => setSelected(o.code)}
+            >
+              <div className="cd-team-glow" />
+              <div className="cd-team-logo">
+                {logos[o.code]
+                  ? <img src={logos[o.code]} alt={o.name} referrerPolicy="no-referrer" onError={e => { e.target.style.display = 'none' }} />
+                  : <span className="cd-team-initials">{o.short}</span>}
+              </div>
+              <div className="cd-team-body">
+                <div className="cd-team-name">{o.name}</div>
+                <div className="cd-team-diff">
+                  <div className="cd-pips">
+                    {[1, 2, 3].map(n => <span key={n} className={`cd-pip ${n <= o.level ? 'on' : ''}`} />)}
+                  </div>
+                  <span className="cd-diff-label">{o.diff}</span>
+                </div>
+                <div className="cd-team-tag">{o.tag}</div>
+              </div>
+              {isSel && <div className="cd-team-check">✓</div>}
+            </button>
+          )
+        })}
+      </div>
 
-      {/* ─── BET / START ─── */}
-      <section className="cd-bet-card">
-        <div className="cd-bet-row">
-          <div className="cd-bet-col">
-            <div className="cd-bet-label">Mise</div>
-            <div className="cd-bet-value cost">−{ENTRY_COST} 🪙</div>
-          </div>
-          <div className="cd-bet-arrow">→</div>
-          <div className="cd-bet-col">
-            <div className="cd-bet-label">Si victoire</div>
-            <div className="cd-bet-value win">+{WIN_PAYOUT} 🪙</div>
-          </div>
-          <div className="cd-bet-col">
-            <div className="cd-bet-label">Si égalité</div>
-            <div className="cd-bet-value draw">remboursé</div>
-          </div>
-          <div className="cd-bet-col">
-            <div className="cd-bet-label">Si défaite</div>
-            <div className="cd-bet-value lose">0</div>
-          </div>
-        </div>
-
-        <div className="cd-balance">
-          Solde actuel : <span className="cd-balance-val">{user.coins?.toLocaleString() ?? '—'} 🪙</span>
-        </div>
-
-        {error && <div className="cd-error">{error}</div>}
-
-        <button
-          className={`cd-btn-launch ${!canPay ? 'disabled' : ''}`}
-          onClick={handleStart}
-          disabled={!canPay || starting || !!resumeGame}
-        >
-          {starting ? 'Lancement…'
-            : resumeGame ? 'Termine d\'abord ta partie en cours'
-            : !canPay ? `Il te manque ${ENTRY_COST - (user.coins ?? 0)} coins`
-            : `Lancer une partie · −${ENTRY_COST} 🪙`}
+      {/* ─── START ─── */}
+      <div className="cd-launch">
+        {error && <div className="cd-error-msg">{error}</div>}
+        <button className="cd-start" disabled={!selected || !canPay || starting} onClick={handleStart}>
+          {starting
+            ? 'Lancement…'
+            : !selected
+              ? 'Sélectionne une équipe'
+              : !canPay
+                ? `Pas assez de coins (${ENTRY_COST} 🪙)`
+                : <>Lancer la draft <span className="cd-cost">−{ENTRY_COST} 🪙</span></>}
         </button>
-      </section>
+      </div>
 
     </div>
   )

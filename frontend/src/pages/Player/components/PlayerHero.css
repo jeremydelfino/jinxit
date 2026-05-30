@@ -9,7 +9,7 @@
 /* ─── BANNER ─── */
 .ph-banner               { position:relative; min-height:280px; overflow:hidden; display:flex; align-items:center; }
 .ph-banner-bg            { position:absolute; inset:0; z-index:0; }
-.ph-banner-team-logo     { position:absolute; right:-40px; top:50%; transform:translateY(-50%); height:520px; width:auto; object-fit:contain; z-index:1; opacity:0.20; filter:blur(0.5px); animation:ph-glow-pulse 6s ease infinite; pointer-events:none; }
+.ph-banner-team-logo     { position:absolute; right:-40px; top:70%; transform:translateY(-50%); height:520px; width:auto; object-fit:contain; z-index:1; opacity:0.20; filter:blur(0.5px); animation:ph-glow-pulse 6s ease infinite; pointer-events:none; }
 .ph-banner-overlay       { position:absolute; bottom:0; left:0; right:0; height:100px; background:linear-gradient(to top, #171717 0%, #17171780 50%, transparent 100%); z-index:4; pointer-events:none; }
 /* ─── HERO (centré dans la bannière) ─── */
 .ph-hero                 { position:relative; z-index:3; width:100%; padding:0 48px; animation:ph-fade-up 0.5s ease both; }

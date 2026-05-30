@@ -36,27 +36,11 @@ def run(label, **kwargs):
     time.sleep(8)
 
 
-# 1. Lister TOUS les fields disponibles dans ScoreboardGames (peut contenir picks/bans directement)
-run(
-    "1 — ScoreboardGames champs limités, voir si Team1Bans existe",
-    tables="ScoreboardGames",
-    fields="Tournament,WinTeam,Team1Bans,Team2Bans,Team1Picks,Team2Picks",
-    where='Tournament="LEC 2025 Summer"',
-    limit=2,
-)
-
-# 2. Tester MatchScheduleGame qui parfois a les picks
-run(
-    "2 — MatchScheduleGame",
-    tables="MatchScheduleGame",
-    fields="GameId,Tournament",
-    limit=2,
-)
-
-# 3. Tester si la table 'Picks' existe (sans S7)
-run(
-    "3 — Picks table?",
-    tables="Picks",
-    fields="GameId",
-    limit=2,
-)
+for team in ["Karmine Corp", "G2 Esports", "T1"]:
+    rows = client.cargo_client.query(
+        tables="ScoreboardGames",
+        fields="Team1,Team2,Team1Picks,Team2Picks,DateTime_UTC=date",
+        where=f'(Team1="{team}" OR Team2="{team}") AND DateTime_UTC >= "2025-11-01"',
+        order_by="DateTime_UTC DESC", limit="10",
+    )
+    print(team, "→", len(rows), "games")

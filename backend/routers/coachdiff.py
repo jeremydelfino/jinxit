@@ -54,6 +54,10 @@ class AssignRolesPayload(BaseModel):
     game_id:  int
     role_map: dict[str, str]   # {"TOP": "Aatrox", "JUNGLE": "Viego", ...}
 
+class StartPayload(BaseModel):
+    opponent: str | None = None
+
+VALID_OPPONENTS = {"KC", "G2", "T1"}
 
 # ─── Helpers ──────────────────────────────────────────────────
 def _serialize_game(g: CoachDiffGame) -> dict:
@@ -88,9 +92,13 @@ def _get_user_game(db: Session, game_id: int, user: User) -> CoachDiffGame:
 # ─── POST /start ──────────────────────────────────────────────
 @router.post("/start")
 def start_game(
+    payload: StartPayload = StartPayload(),
     db: Session = Depends(get_db),
     user: User  = Depends(get_current_user),
 ):
+    opponent = (payload.opponent or "G2")
+    if opponent not in VALID_OPPONENTS:
+        opponent = "G2"
     # Vérifier qu'il n'a pas déjà une partie en cours
     existing = db.query(CoachDiffGame).filter(
         CoachDiffGame.user_id == user.id,
@@ -119,6 +127,7 @@ def start_game(
         status       = "in_progress",
         user_side    = user_side,
         bot_side     = bot_side,
+        opponent     = opponent,
         draft_state  = state,
         created_at   = datetime.utcnow(),
     )
@@ -191,7 +200,7 @@ def bot_turn(
     if turn["actor"] != "BOT":
         raise HTTPException(400, "Pas le tour du bot")
 
-    state, choice = bot_play_turn(db, state)
+    state, choice = bot_play_turn(db, state, g.opponent)
     logger.info(f"[coachdiff] game {g.id} bot {turn['action']} → {choice}")
 
     g.draft_state = state
@@ -228,7 +237,7 @@ def assign_roles(
 
     # 2) Assigner les rôles bot (auto, greedy par pickrate Pro)
     bot_picks = state["red" if bot_side == "RED" else "blue"]["picks"]
-    bot_lane_map = bot_assign_roles(db, bot_picks)
+    bot_lane_map = bot_assign_roles(db, bot_picks, plan=state.get("bot_plan"))
     apply_role_assignment(state, bot_side, bot_lane_map)
 
     # 3) Scorer

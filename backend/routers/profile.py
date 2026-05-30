@@ -205,6 +205,14 @@ def get_public_profile(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(404, "Utilisateur introuvable")
+
+    equipped_title_text = None
+    if user.equipped_title_id:
+        from models.card import Card
+        title_card = db.query(Card).filter(Card.id == user.equipped_title_id).first()
+        if title_card:
+            equipped_title_text = title_card.title_text or title_card.name
+
     return {
         "id":            user.id,
         "username":      user.username,
@@ -226,7 +234,7 @@ def get_public_profile(
             "instagram_handle": user.instagram_handle,
         },
         "equipped_stickers": _equipped_stickers_for(db, user.id),
-        "equipped_title_id":   current_user.equipped_title_id,
+        "equipped_title_id":   user.equipped_title_id,
         "equipped_title_text": equipped_title_text,
     }
 
@@ -262,43 +270,106 @@ async def link_riot_init(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    account = await riot.get_account_by_riot_id(body.game_name, body.tag_line, body.region)
+    if db.query(RiotAccount).filter(RiotAccount.user_id == current_user.id).count() >= 3:
+        raise HTTPException(400, "Tu as déjà 3 comptes Riot liés")
+
+    try:
+        account = await riot.get_account_by_riot_id(body.game_name, body.tag_line, body.region)
+    except Exception:
+        raise HTTPException(400, "Riot ID introuvable — vérifie le pseudo et le tag")
+
     puuid = account["puuid"]
-    existing = db.query(User).filter(User.riot_puuid == puuid, User.id != current_user.id).first()
+
+    # Vérifie que ce puuid n'est pas déjà lié à un autre user
+    existing = (
+        db.query(RiotAccount)
+        .filter(RiotAccount.riot_puuid == puuid, RiotAccount.user_id != current_user.id)
+        .first()
+    )
     if existing:
         raise HTTPException(400, "Ce compte Riot est déjà lié à un autre compte JungleGap")
+
     icon_id = random.randint(1, 28)
-    current_user.riot_puuid = puuid
-    current_user.riot_verification_icon = icon_id
+    is_primary = db.query(RiotAccount).filter(RiotAccount.user_id == current_user.id).count() == 0
+
+    # Crée ou réutilise un RiotAccount pending pour ce puuid
+    pending_ra = (
+        db.query(RiotAccount)
+        .filter(RiotAccount.user_id == current_user.id, RiotAccount.riot_puuid == puuid)
+        .first()
+    )
+    if pending_ra:
+        pending_ra.verification_icon = icon_id
+    else:
+        pending_ra = RiotAccount(
+            user_id           = current_user.id,
+            riot_puuid        = puuid,
+            summoner_name     = body.game_name,
+            tag_line          = body.tag_line,
+            region            = body.region.upper(),
+            is_primary        = is_primary,
+            verification_icon = icon_id,
+        )
+        db.add(pending_ra)
+
     db.commit()
+    db.refresh(pending_ra)
+
     return {
-        "icon_id":      icon_id,
-        "icon_url":     f"https://ddragon.leagueoflegends.com/cdn/16.7.1/img/profileicon/{icon_id}.png",
-        "instructions": f"Change ton icône pour l'icône n°{icon_id} dans LoL, puis clique Vérifier",
-        "game_name":    body.game_name,
-        "tag_line":     body.tag_line,
-        "region":       body.region,
+        "riot_account_id": pending_ra.id,
+        "icon_id":         icon_id,
+        "icon_url":        f"https://ddragon.leagueoflegends.com/cdn/16.7.1/img/profileicon/{icon_id}.png",
+        "game_name":       body.game_name,
+        "tag_line":        body.tag_line,
+        "region":          body.region.upper(),
     }
 
 # ─── POST /link-riot/verify ──────────────────────────────────
 
+class VerifyRiotSchema(BaseModel):
+    riot_account_id: int
+
 @router.post("/link-riot/verify")
 async def link_riot_verify(
+    body: VerifyRiotSchema,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if not current_user.riot_puuid or not current_user.riot_verification_icon:
-        raise HTTPException(400, "Lance d'abord /link-riot/init")
-    from models.player import SearchedPlayer
-    player = db.query(SearchedPlayer).filter(
-        SearchedPlayer.riot_puuid == current_user.riot_puuid
+    ra = db.query(RiotAccount).filter(
+        RiotAccount.id      == body.riot_account_id,
+        RiotAccount.user_id == current_user.id,
     ).first()
-    if not player:
-        raise HTTPException(400, "Joueur introuvable en cache, relance /link-riot/init")
-    summoner     = await riot.get_summoner_by_puuid(current_user.riot_puuid, player.region)
-    current_icon = summoner["profileIconId"]
-    if current_icon != current_user.riot_verification_icon:
-        raise HTTPException(400, f"Mauvaise icône (actuelle : {current_icon}, attendue : {current_user.riot_verification_icon})")
-    current_user.riot_verification_icon = None
+    if not ra or not ra.verification_icon:
+        raise HTTPException(400, "Session de vérification introuvable, recommence")
+
+    try:
+        summoner = await riot.get_summoner_by_puuid(ra.riot_puuid, ra.region)
+    except Exception:
+        raise HTTPException(400, "Impossible de contacter Riot, réessaie")
+
+    if summoner["profileIconId"] != ra.verification_icon:
+        raise HTTPException(
+            400,
+            f"Mauvaise icône (actuelle : {summoner['profileIconId']}, attendue : {ra.verification_icon})"
+        )
+
+    # Vérification OK — enrichit le compte et le marque comme vérifié
+    ra.verification_icon  = None
+    ra.summoner_name      = summoner.get("name") or ra.summoner_name
+    ra.profile_icon_url   = f"https://ddragon.leagueoflegends.com/cdn/16.7.1/img/profileicon/{summoner['profileIconId']}.png"
     db.commit()
-    return {"success": True, "message": "Compte Riot lié avec succès !", "riot_puuid": current_user.riot_puuid}
+    db.refresh(ra)
+
+    return {
+        "riot_account": {
+            "id":               ra.id,
+            "summoner_name":    ra.summoner_name,
+            "tag_line":         ra.tag_line,
+            "region":           ra.region,
+            "profile_icon_url": ra.profile_icon_url,
+            "tier":             ra.tier,
+            "rank":             ra.rank,
+            "lp":               ra.lp,
+            "is_primary":       ra.is_primary,
+        }
+    }

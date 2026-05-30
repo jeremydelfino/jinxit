@@ -26,7 +26,7 @@ export default function BannerStickers({ userId, isOwnProfile, bannerRef }) {
     try {
       const path = isOwnProfile
         ? '/cards/equipped-stickers'
-        : `/profile/${userId}/equipped-stickers`
+        : `/cards/equipped-stickers/public/${userId}`
       const { data } = await api.get(path)
       setStickers(Array.isArray(data) ? data : [])
     } catch {

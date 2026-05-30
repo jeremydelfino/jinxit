@@ -4,144 +4,150 @@ import { useParams, useNavigate } from 'react-router-dom'
 import useAuthStore from '../../store/auth'
 import { getGame, userAction, botTurn, assignRoles } from '../../api/coachdiff'
 import { fetchDDragonData, getAllPicked } from './utils'
-import { BOT_DELAY_MIN_MS, BOT_DELAY_MAX_MS, TURN_DURATION_S } from './constants'
+import { BOT_DELAY_MIN_MS, BOT_DELAY_MAX_MS, TURN_DURATION_S, ROLE_ASSIGN_DURATION_S, LANES } from './constants'
 
-import DraftHeader   from './components/DraftHeader'
-import BanRow        from './components/BanRow'
-import PickColumn    from './components/PickColumn'
-import ChampionGrid  from './components/ChampionGrid'
-import RoleAssignPanel from './components/RoleAssignPanel'
-import ScoreReveal     from './components/ScoreReveal'
+import DraftHeader  from './components/DraftHeader'
+import BanRow       from './components/BanRow'
+import PickColumn   from './components/PickColumn'
+import ChampionGrid from './components/ChampionGrid'
+import ScoreReveal  from './components/ScoreReveal'
 
 export default function CoachDiffGame() {
   const { gameId } = useParams()
   const navigate = useNavigate()
   const { user } = useAuthStore()
 
-  const [game,        setGame]        = useState(null)
-  const [ddragon,     setDdragon]     = useState(null)
-  const [loading,     setLoading]     = useState(true)
-  const [error,       setError]       = useState(null)
-  const [busy,        setBusy]        = useState(false)
-  const [selected,    setSelected]    = useState(null)
-  const [timer,       setTimer]       = useState(null)
+  const [game,       setGame]       = useState(null)
+  const [ddragon,    setDdragon]    = useState(null)
+  const [loading,    setLoading]    = useState(true)
+  const [error,      setError]      = useState(null)
+  const [busy,       setBusy]       = useState(false)
+  const [selected,   setSelected]   = useState(null)
+  const [timer,      setTimer]      = useState(null)
+  const [assignment, setAssignment] = useState(null)   // [champ x5] en ordre de rôle
+  const [swapFrom,   setSwapFrom]   = useState(null)
+  const [assignTimer, setAssignTimer] = useState(null)
+
   const botTimerRef   = useRef(null)
   const tickRef       = useRef(null)
+  const assignTickRef = useRef(null)
+  const submitRef     = useRef(null)
 
-  /* ─── Load DDragon ─── */
+  /* ─── DDragon ─── */
   useEffect(() => {
-    fetchDDragonData()
-      .then(setDdragon)
-      .catch(e => console.error('DDragon fetch failed', e))
+    fetchDDragonData().then(setDdragon).catch(e => console.error('DDragon fetch failed', e))
   }, [])
 
   /* ─── Load game ─── */
   const loadGame = useCallback(async () => {
     try {
-      const g = await getGame(gameId)
-      setGame(g)
-      setLoading(false)
+      setGame(await getGame(gameId)); setLoading(false)
     } catch (e) {
-      setError(e?.response?.data?.detail || 'Partie introuvable')
-      setLoading(false)
+      setError(e?.response?.data?.detail || 'Partie introuvable'); setLoading(false)
     }
   }, [gameId])
-
   useEffect(() => { loadGame() }, [loadGame])
 
-  /* ─── Reset selected à chaque changement de tour ─── */
-  useEffect(() => {
-    setSelected(null)
-  }, [game?.draft_state?.step])
+  /* ─── Reset selected au changement de tour ─── */
+  useEffect(() => { setSelected(null) }, [game?.draft_state?.step])
 
-  /* ─── Auto bot turn ─── */
+  /* ─── Tour automatique du bot ─── */
   useEffect(() => {
     if (!game || game.status !== 'in_progress') return
     const turn = game.current_turn
     if (!turn || turn.actor !== 'BOT') return
-
     const delay = BOT_DELAY_MIN_MS + Math.random() * (BOT_DELAY_MAX_MS - BOT_DELAY_MIN_MS)
     botTimerRef.current = setTimeout(async () => {
-      try {
-        setBusy(true)
-        const updated = await botTurn(game.id)
-        setGame(updated)
-      } catch (e) {
-        console.error('Bot turn failed', e)
-      } finally {
-        setBusy(false)
-      }
+      try { setBusy(true); setGame(await botTurn(game.id)) }
+      catch (e) { console.error('Bot turn failed', e) }
+      finally { setBusy(false) }
     }, delay)
-
     return () => clearTimeout(botTimerRef.current)
   }, [game])
 
-  /* ─── User action ─── */
+  /* ─── Action user (pick/ban) ─── */
   const handleUserAction = useCallback(async (champion) => {
     if (busy || !game) return
-    try {
-      setBusy(true)
-      const updated = await userAction(game.id, champion)
-      setGame(updated)
-    } catch (e) {
-      console.error('User action failed', e)
-      alert(e?.response?.data?.detail || 'Action impossible')
-    } finally {
-      setBusy(false)
-    }
+    try { setBusy(true); setGame(await userAction(game.id, champion)) }
+    catch (e) { alert(e?.response?.data?.detail || 'Action impossible') }
+    finally { setBusy(false) }
   }, [busy, game])
 
-  /* ─── Assign roles ─── */
+  /* ─── Envoi de l'assignation ─── */
   const handleAssignRoles = useCallback(async (roleMap) => {
     if (busy || !game) return
-    try {
-      setBusy(true)
-      const updated = await assignRoles(game.id, roleMap)
-      setGame(updated)
-    } catch (e) {
-      console.error('Role assignment failed', e)
-      alert(e?.response?.data?.detail || 'Assignation impossible')
-    } finally {
-      setBusy(false)
-    }
+    try { setBusy(true); setGame(await assignRoles(game.id, roleMap)) }
+    catch (e) { alert(e?.response?.data?.detail || 'Assignation impossible') }
+    finally { setBusy(false) }
   }, [busy, game])
 
-  /* ─── Timer + auto-pick on timeout ─── */
-  const isUserTurn = game?.status === 'in_progress' && game?.current_turn?.actor === 'USER'
+  const submitAssignment = useCallback(() => {
+    setAssignment(curr => {
+      if (curr && curr.length === 5 && !busy) {
+        const roleMap = {}
+        LANES.forEach((lane, i) => { roleMap[lane] = curr[i] })
+        handleAssignRoles(roleMap)
+      }
+      return curr
+    })
+  }, [busy, handleAssignRoles])
+  submitRef.current = submitAssignment
 
+  const handleSlotClick = (i) => {
+    if (swapFrom === null) { setSwapFrom(i); return }
+    if (swapFrom === i)    { setSwapFrom(null); return }
+    setAssignment(prev => {
+      const next = [...prev]
+      ;[next[swapFrom], next[i]] = [next[i], next[swapFrom]]
+      return next
+    })
+    setSwapFrom(null)
+  }
+
+  /* ─── Timer du tour user + auto-pick ─── */
+  const isUserTurn = game?.status === 'in_progress' && game?.current_turn?.actor === 'USER'
   useEffect(() => {
     clearInterval(tickRef.current)
-
-    if (!isUserTurn || !ddragon) {
-      setTimer(null)
-      return
-    }
-
+    if (!isUserTurn || !ddragon) { setTimer(null); return }
     setTimer(TURN_DURATION_S)
     tickRef.current = setInterval(() => {
       setTimer(prev => {
         if (prev === null) return null
         if (prev <= 1) {
           clearInterval(tickRef.current)
-          // Auto-pick d'un champion random valide
           const picked = getAllPicked(game.draft_state)
-          const candidates = ddragon.champions.filter(c => !picked.has(c.id))
-          if (candidates.length > 0) {
-            const random = candidates[Math.floor(Math.random() * candidates.length)]
-            handleUserAction(random.id)
-          }
+          const cands = ddragon.champions.filter(c => !picked.has(c.id))
+          if (cands.length) handleUserAction(cands[Math.floor(Math.random() * cands.length)].id)
           return 0
         }
         return prev - 1
       })
     }, 1000)
-
     return () => clearInterval(tickRef.current)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isUserTurn, game?.draft_state?.step, ddragon])
 
-  /* ─── Auth + load guards ─── */
-  if (!user) return <div className="cdg-loading">Connecte-toi pour jouer</div>
+  /* ─── Phase ROLE_ASSIGN : init + timer 30s ─── */
+  useEffect(() => {
+    if (game?.draft_state?.phase !== 'ROLE_ASSIGN') return
+    const key = game.draft_state.user_side.toLowerCase()
+    const picks = game.draft_state[key]?.picks || []
+    setAssignment(prev => prev ?? picks.slice(0, 5))
+    setAssignTimer(ROLE_ASSIGN_DURATION_S)
+    clearInterval(assignTickRef.current)
+    assignTickRef.current = setInterval(() => {
+      setAssignTimer(prev => {
+        if (prev === null) return null
+        if (prev <= 1) { clearInterval(assignTickRef.current); submitRef.current?.(); return 0 }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(assignTickRef.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game?.draft_state?.phase])
+
+  /* ─── Guards ─── */
+  if (!user)              return <div className="cdg-loading">Connecte-toi pour jouer</div>
   if (loading || !ddragon) return <div className="cdg-loading">Chargement…</div>
   if (error) return (
     <div className="cdg-error">
@@ -151,8 +157,6 @@ export default function CoachDiffGame() {
   )
   if (!game) return null
 
-  /* ─── Routing par phase ─── */
-/* ─── Routing par phase ─── */
   const phase = game.draft_state?.phase
   const state = game.draft_state
 
@@ -160,81 +164,66 @@ export default function CoachDiffGame() {
     return <ScoreReveal game={game} version={ddragon.version} />
   }
 
-  if (phase === 'ROLE_ASSIGN') {
-    const userSideKey = state.user_side.toLowerCase()
-    const userPicks   = state[userSideKey]?.picks || []
-    return (
-      <RoleAssignPanel
-        picks={userPicks}
-        version={ddragon.version}
-        onSubmit={handleAssignRoles}
-        busy={busy}
-      />
-    )
-  }
-
-  /* ─── Draft UI ─── */
+  /* ─── Draft ─── */
+/* ─── Board (draft + assignation sur la même page) ─── */
   const turn = game.current_turn
   const pickedSet = getAllPicked(state)
   const actionLabel = turn?.action === 'ban' ? 'Ban' : 'Pick'
 
+  const isAssign = phase === 'ROLE_ASSIGN'
+  const userSide = state.user_side
+  const userKey  = userSide.toLowerCase()
+  const assignList = assignment || (state[userKey]?.picks || []).slice(0, 5)
+
+  const colProps = (side) => ({
+    side,
+    picks: state[side.toLowerCase()].picks,
+    version: ddragon.version,
+    isCurrentSlot: !isAssign && turn?.action === 'pick' && turn?.side === side,
+    assignMode: isAssign && userSide === side,
+    assignment: userSide === side ? assignList : null,
+    swapFrom:   userSide === side ? swapFrom : null,
+    onSlotClick: userSide === side ? handleSlotClick : null,
+  })
+
   return (
     <div className="cdg-page">
-
-      {/* ─── HEADER ─── */}
       <DraftHeader
-        phase={phase}
-        step={state.step}
-        currentTurn={turn}
-        userSide={state.user_side}
-        timer={isUserTurn ? timer : null}
-        isUserTurn={isUserTurn}
+        phase={phase} step={state.step} currentTurn={turn} userSide={userSide}
+        timer={isAssign ? null : (isUserTurn ? timer : null)}
+        isUserTurn={isUserTurn} assignMode={isAssign}
       />
 
-      {/* ─── BAN ROWS ─── */}
       <div className="cdg-bans">
-        <BanRow
-          side="BLUE"
-          bans={state.blue.bans}
-          version={ddragon.version}
-          isCurrentSlot={turn?.action === 'ban' && turn?.side === 'BLUE'}
-        />
-        <BanRow
-          side="RED"
-          bans={state.red.bans}
-          version={ddragon.version}
-          isCurrentSlot={turn?.action === 'ban' && turn?.side === 'RED'}
-        />
+        <BanRow side="BLUE" bans={state.blue.bans} version={ddragon.version}
+                isCurrentSlot={!isAssign && turn?.action === 'ban' && turn?.side === 'BLUE'} />
+        <BanRow side="RED" bans={state.red.bans} version={ddragon.version}
+                isCurrentSlot={!isAssign && turn?.action === 'ban' && turn?.side === 'RED'} />
       </div>
 
-      {/* ─── MAIN BOARD ─── */}
       <div className="cdg-board">
+        <PickColumn {...colProps('BLUE')} />
 
-        <PickColumn
-          side="BLUE"
-          picks={state.blue.picks}
-          version={ddragon.version}
-          isCurrentSlot={turn?.action === 'pick' && turn?.side === 'BLUE'}
-        />
+        {isAssign ? (
+          <div className="cdg-ac">
+            <div className="cdg-ac-icon">🎯</div>
+            <h3 className="cdg-ac-title">Place tes champions</h3>
+            <p className="cdg-ac-hint">Clique un champion de ta colonne, puis la lane à échanger. De haut en bas : Top · Jungle · Mid · ADC · Support.</p>
+            <button className="cdg-ac-validate" onClick={submitAssignment} disabled={busy}>
+              {busy ? 'Validation…' : 'Valider la draft'}
+            </button>
+            <div className={`cdg-ac-timer ${(assignTimer ?? 30) <= 5 ? 'urgent' : ''}`}>{assignTimer ?? 30}s</div>
+          </div>
+        ) : (
+          <ChampionGrid
+            champions={ddragon.champions} version={ddragon.version} pickedSet={pickedSet}
+            selected={selected} onSelect={setSelected}
+            onLockIn={() => selected && handleUserAction(selected)}
+            disabled={!isUserTurn || busy} actionLabel={actionLabel}
+          />
+        )}
 
-        <ChampionGrid
-          champions={ddragon.champions}
-          version={ddragon.version}
-          pickedSet={pickedSet}
-          selected={selected}
-          onSelect={setSelected}
-          onLockIn={() => selected && handleUserAction(selected)}
-          disabled={!isUserTurn || busy}
-          actionLabel={actionLabel}
-        />
-
-        <PickColumn
-          side="RED"
-          picks={state.red.picks}
-          version={ddragon.version}
-          isCurrentSlot={turn?.action === 'pick' && turn?.side === 'RED'}
-        />
-
+        <PickColumn {...colProps('RED')} />
       </div>
     </div>
   )

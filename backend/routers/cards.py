@@ -321,7 +321,14 @@ def get_equipped_stickers(
 ):
     return _equipped_stickers_for(db, current_user.id)
 
-
+# ─── GET /cards/equipped-stickers/public/{user_id} ──────────
+@router.get("/equipped-stickers/public/{user_id}")
+def get_equipped_stickers_public(
+    user_id: int,
+    db: Session = Depends(get_db),
+):
+    return _equipped_stickers_for(db, user_id)
+    
 def _equipped_stickers_for(db: Session, user_id: int) -> list:
     """Helper réutilisable (utilisable depuis profile/user routers)."""
     rows = (
