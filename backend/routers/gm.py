@@ -69,6 +69,8 @@ class AdminCardUpdate(BaseModel):
     clutch:      Optional[int]  = None
     ego:         Optional[int]  = None
     traits:      Optional[list] = None
+    photo_url:   Optional[str]  = None
+    is_active:   Optional[bool] = None
 
 class PackCreate(BaseModel):
     name:         str
@@ -110,6 +112,7 @@ def _serialize_card(card: GmPlayerCard, ep: Optional[EsportsPlayer], brand=None)
         "ego":         card.ego,
         "traits":      card.traits,
         "base_salary": card.base_salary,
+        "photo_url":  card.photo_url or ep.photo_url,
         "stats": {
             "laning":    card.laning,   "teamfight": card.teamfight,
             "vision":    card.vision,   "mechanics": card.mechanics,
@@ -424,6 +427,10 @@ def admin_update_card(card_id: int, body: AdminCardUpdate, db: Session = Depends
         card.nationality = (body.nationality.upper()[:2] or None)
     if body.traits is not None:
         card.traits = body.traits
+    if body.photo_url is not None:
+        card.photo_url = body.photo_url.strip() or None
+    if body.is_active is not None:
+        card.is_active = bool(body.is_active)
 
     card.ovr = compute_ovr(card.role, card.laning, card.teamfight, card.vision,
                            card.mechanics, card.stress, card.clutch)
@@ -445,6 +452,15 @@ def admin_create_pack(body: PackCreate, db: Session = Depends(get_db), admin: Us
     db.commit()
     db.refresh(pack)
     return {"id": pack.id, "name": pack.name}
+
+@router.delete("/admin/cards/{card_id}")
+def admin_deactivate_card(card_id: int, db: Session = Depends(get_db), admin: User = Depends(get_admin_user)):
+    card = db.query(GmPlayerCard).filter(GmPlayerCard.id == card_id).first()
+    if not card:
+        raise HTTPException(404, "Carte introuvable.")
+    card.is_active = False
+    db.commit()
+    return {"ok": True, "card_id": card_id}
 
 # ═══════════════════════════════════════════════════════════
 # MATCH (Tranche 2 — 2b : jouer sa journée)

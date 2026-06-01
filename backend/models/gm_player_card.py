@@ -25,7 +25,8 @@ class GmPlayerCard(Base):
 
     traits      = Column(JSONB, nullable=False, default=list)      # ["VETERAN","FRANCHISE",...]
     ovr         = Column(SmallInteger, nullable=False, default=0)  # caché, dérivé des 6 stats
-    base_salary = Column(Integer, nullable=False, default=0)       # /journée, dérivé de l'ovr
+    base_salary = Column(Integer, nullable=False, default=0)
+    photo_url   = Column(String, nullable=True)   # override admin (prioritaire sur esports_player.photo_url)       # /journée, dérivé de l'ovr
     is_active   = Column(Boolean, nullable=False, default=True)
     created_at  = Column(TIMESTAMP, server_default=func.now())
 

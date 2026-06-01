@@ -18,6 +18,7 @@ import LootBox from './pages/LootBox/index.jsx'
 import Footer from './components/layout/Footer/index.jsx'
 import AdminCards from './pages/AdminCards/index.jsx'
 import AdminLootboxes from './pages/AdminLootboxes/index.jsx'
+import AdminGm from './pages/AdminGm/index.jsx'
 import GameMode from './pages/GameMode'
 
 
@@ -55,6 +56,7 @@ export default function App() {
           <Route path="/admin/cards"                   element={<AdminCards />} />
           <Route path="/admin/lootboxes" element={<AdminLootboxes />} />
           <Route path="/games/myceo" element={<GameMode />} />
+          <Route path="/admin/gm" element={<AdminGm />} />
         </Route>
       </Routes>
     </BrowserRouter>
