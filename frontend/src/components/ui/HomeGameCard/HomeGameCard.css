@@ -4,7 +4,7 @@
 @keyframes fade-up { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
 @keyframes glint { 0%,85%{opacity:0;transform:translateX(-100%) rotate(25deg)} 90%{opacity:1} 100%{opacity:0;transform:translateX(300%) rotate(25deg)} }
 
-.game-card::before {
+.homegame-card::before {
   content: '';
   position: absolute;
   top: -50%; left: 0;
@@ -18,17 +18,17 @@
 /* ══════════════════════════════════════
    CARD BASE
 ══════════════════════════════════════ */
-.game-card {
+.homegame-card {
   position: relative;
   background: #1a1a1a;
   border: 1px solid #ffffff0a;
   border-radius: 18px;
   cursor: pointer;
   overflow: hidden;
-  height: 360px; /* légèrement plus haute pour respirer */
+  height: 290px; /* légèrement plus haute pour respirer */
   transition: border-color 0.3s, box-shadow 0.3s, transform 0.25s;
 }
-.game-card:hover {
+.homegame-card:hover {
   border-color: #ffffff20;
   box-shadow: 0 16px 48px #00000080;
   transform: translateY(-5px);
@@ -42,7 +42,7 @@
   border-radius: 17px; overflow: hidden;
   transition: transform 0.42s cubic-bezier(0.4,0,0.2,1), opacity 0.35s ease;
 }
-.game-card:hover .pro-overlay { transform: translateY(-110%); opacity: 0; pointer-events: none; }
+.homegame-card:hover .pro-overlay { transform: translateY(-110%); opacity: 0; pointer-events: none; }
 
 .pro-bg { position: absolute; inset: 0; }
 
@@ -98,7 +98,7 @@
   opacity: 0;
   transition: opacity 0.22s 0.18s;
 }
-.game-card:hover .game-info { opacity: 1; }
+.homegame-card:hover .game-info { opacity: 1; }
 
 /* ── Background ── */
 .gi-bg        { position: absolute; inset: 0; background: #181818; }

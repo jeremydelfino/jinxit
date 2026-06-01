@@ -19,15 +19,15 @@ export default function Games() {
       </section>
 
       {/* ─── GRID ─── */}
-      <section className="games-grid">
+      <section className="ggames-grid">
         {GAMES.map(g => (
           <button
             key={g.id}
-            className={`game-card ${!g.available ? 'disabled' : ''}`}
+            className={`ggame-card ${!g.available ? 'disabled' : ''}`}
             onClick={() => g.available && navigate(g.path)}
             disabled={!g.available}
           >
-            <img className="game-card-img" src={g.img} alt={g.alt} loading="lazy" />
+            <img className="ggame-card-img" src={g.img} alt={g.alt} loading="lazy" />
           </button>
         ))}
       </section>

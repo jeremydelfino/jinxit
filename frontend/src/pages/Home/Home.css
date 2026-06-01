@@ -78,12 +78,12 @@
 .section-link:hover { color: #9ca3af; }
 
 /* ─── GAMES GRID ─── */
-.games-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-.game-card { background: #242424; border: 1px solid #ffffff08; border-radius: 14px; padding: 18px; cursor: pointer; transition: all 0.25s; position: relative; overflow: hidden; animation: card-in 0.5s ease both;}
-.game-card::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 2px; background: linear-gradient(90deg, transparent, #65BD62, #F2E2C9, transparent); transition: left 0.4s ease; }
-.game-card:hover { border-color: #00ff2a25; transform: translateY(-3px); box-shadow: 0 8px 32px #00000030; }
-.game-card:hover::before { left: 100%; }
-.game-card:nth-child(1) { animation-delay: .15s; } .game-card:nth-child(2) { animation-delay: .25s; } .game-card:nth-child(3) { animation-delay: .35s; }
+.homegames-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.homegame-card { background: #242424; border: 1px solid #ffffff08; border-radius: 14px; padding: 18px; cursor: pointer; transition: all 0.25s; position: relative; overflow: hidden; animation: card-in 0.5s ease both;}
+.homegame-card::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 2px; background: linear-gradient(90deg, transparent, #65BD62, #F2E2C9, transparent); transition: left 0.4s ease; }
+.homegame-card:hover { border-color: #00ff2a25; transform: translateY(-3px); box-shadow: 0 8px 32px #00000030; }
+.homegame-card:hover::before { left: 100%; }
+.homegame-card:nth-child(1) { animation-delay: .15s; } .homegame-card:nth-child(2) { animation-delay: .25s; } .homegame-card:nth-child(3) { animation-delay: .35s; }
 .game-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .game-players { display: flex; }
 .player-icon { width: 27px; height: 27px; border-radius: 50%; border: 2px solid #454141; margin-left: -6px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; font-family: 'Inter', sans-serif; }

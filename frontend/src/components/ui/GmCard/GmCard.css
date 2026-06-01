@@ -1,0 +1,126 @@
+/* ─── Carte joueur FUT ─────────────────────────────────── */
+.gm-card { --gm-w: 200px; }
+.gm-card { width: var(--gm-w); }
+.gm-card { aspect-ratio: 5 / 7; }
+.gm-card { position: relative; }
+.gm-card { display: flex; }
+.gm-card { flex-direction: column; }
+.gm-card { align-items: center; }
+.gm-card { padding: 14px 12px 12px; }
+.gm-card { border-radius: 16px; }
+.gm-card { background: linear-gradient(160deg, #20201c 0%, #171717 55%, #14140f 100%); }
+.gm-card { border: 1px solid #c89b3c55; }
+.gm-card { box-shadow: 0 8px 24px #0008, inset 0 0 0 1px #ffffff08; }
+.gm-card { overflow: hidden; }
+
+.gm-card-sm { --gm-w: 150px; }
+.gm-card-lg { --gm-w: 260px; }
+
+/* ─── En-tête : OVR + rôle + nationalité ───────────────── */
+.gm-card-head { width: 100%; }
+.gm-card-head { display: flex; }
+.gm-card-head { align-items: flex-start; }
+.gm-card-head { justify-content: space-between; }
+
+.gm-card-ovr { font-family: 'Outfit', sans-serif; }
+.gm-card-ovr { font-weight: 900; }
+.gm-card-ovr { font-size: 34px; }
+.gm-card-ovr { line-height: 0.9; }
+.gm-card-ovr { color: #c89b3c; }
+.gm-card-ovr { text-shadow: 0 2px 6px #000a; }
+
+.gm-card-meta { display: flex; }
+.gm-card-meta { flex-direction: column; }
+.gm-card-meta { align-items: flex-end; }
+.gm-card-meta { gap: 4px; }
+
+.gm-card-role { font-family: 'Outfit', sans-serif; }
+.gm-card-role { font-weight: 800; }
+.gm-card-role { font-size: 12px; }
+.gm-card-role { letter-spacing: 1px; }
+.gm-card-role { color: #65BD62; }
+
+.gm-card-nat { font-size: 10px; }
+.gm-card-nat { font-weight: 700; }
+.gm-card-nat { color: #9ca3af; }
+.gm-card-nat { padding: 1px 6px; }
+.gm-card-nat { border: 1px solid #ffffff18; }
+.gm-card-nat { border-radius: 6px; }
+
+/* ─── Photo ────────────────────────────────────────────── */
+.gm-card-photo { margin-top: 4px; }
+.gm-card-photo { width: 92px; }
+.gm-card-photo { height: 92px; }
+.gm-card-photo { border-radius: 50%; }
+.gm-card-photo { overflow: hidden; }
+.gm-card-photo { background: #ffffff08; }
+.gm-card-photo { border: 2px solid #c89b3c66; }
+.gm-card-photo { display: flex; }
+.gm-card-photo { align-items: center; }
+.gm-card-photo { justify-content: center; }
+
+.gm-card-photo img { width: 100%; }
+.gm-card-photo img { height: 100%; }
+.gm-card-photo img { object-fit: cover; }
+.gm-card-photo img { object-position: top center; }
+
+.gm-card-photo-ph { font-family: 'Outfit', sans-serif; }
+.gm-card-photo-ph { font-weight: 900; }
+.gm-card-photo-ph { font-size: 28px; }
+.gm-card-photo-ph { color: #c89b3c; }
+
+/* ─── Nom + équipe ─────────────────────────────────────── */
+.gm-card-name { margin-top: 8px; }
+.gm-card-name { font-family: 'Outfit', sans-serif; }
+.gm-card-name { font-weight: 800; }
+.gm-card-name { font-size: 15px; }
+.gm-card-name { color: #f5f5f0; }
+.gm-card-name { text-align: center; }
+.gm-card-name { max-width: 100%; }
+.gm-card-name { white-space: nowrap; }
+.gm-card-name { overflow: hidden; }
+.gm-card-name { text-overflow: ellipsis; }
+
+.gm-card-team { font-size: 10px; }
+.gm-card-team { font-weight: 700; }
+.gm-card-team { letter-spacing: 1px; }
+.gm-card-team { color: #6b7280; }
+
+/* ─── Étoiles d'ego ────────────────────────────────────── */
+.gm-card-ego { margin: 6px 0 8px; }
+.gm-card-ego { display: flex; }
+.gm-card-ego { gap: 2px; }
+
+.gm-star { font-size: 13px; }
+.gm-star { color: #3a3a34; }
+.gm-star.on { color: #c89b3c; }
+.gm-star.on { text-shadow: 0 0 6px #c89b3c66; }
+
+/* ─── Grille des 6 stats ───────────────────────────────── */
+.gm-card-stats { width: 100%; }
+.gm-card-stats { margin-top: auto; }
+.gm-card-stats { display: grid; }
+.gm-card-stats { grid-template-columns: repeat(3, 1fr); }
+.gm-card-stats { gap: 6px 4px; }
+.gm-card-stats { padding-top: 8px; }
+.gm-card-stats { border-top: 1px solid #ffffff10; }
+
+.gm-card-stat { display: flex; }
+.gm-card-stat { flex-direction: column; }
+.gm-card-stat { align-items: center; }
+.gm-card-stat { line-height: 1; }
+
+.gm-stat-val { font-family: 'Outfit', sans-serif; }
+.gm-stat-val { font-weight: 800; }
+.gm-stat-val { font-size: 16px; }
+
+.gm-stat-lbl { font-size: 9px; }
+.gm-stat-lbl { font-weight: 700; }
+.gm-stat-lbl { letter-spacing: 0.5px; }
+.gm-stat-lbl { color: #6b7280; }
+.gm-stat-lbl { margin-top: 2px; }
+
+.gm-s-elite { color: #c89b3c; }
+.gm-s-good  { color: #65BD62; }
+.gm-s-mid   { color: #d1d5db; }
+.gm-s-low   { color: #9b6b6b; }

@@ -18,6 +18,7 @@ import LootBox from './pages/LootBox/index.jsx'
 import Footer from './components/layout/Footer/index.jsx'
 import AdminCards from './pages/AdminCards/index.jsx'
 import AdminLootboxes from './pages/AdminLootboxes/index.jsx'
+import GameMode from './pages/GameMode'
 
 
 function WithNavbar() {
@@ -53,6 +54,7 @@ export default function App() {
           <Route path="/lootbox"                       element={<LootBox />} />
           <Route path="/admin/cards"                   element={<AdminCards />} />
           <Route path="/admin/lootboxes" element={<AdminLootboxes />} />
+          <Route path="/games/myceo" element={<GameMode />} />
         </Route>
       </Routes>
     </BrowserRouter>

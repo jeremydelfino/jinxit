@@ -35,6 +35,8 @@ from routers import coachdiff
 from routers import lootbox
 from routers import promo
 from routers import cards
+from routers import gm
+
 # Services
 from services.esports_sync import sync_all_teams
 from services.champion_winrate_collector import refresh_champion_winrates
@@ -178,7 +180,7 @@ app.include_router(social.router)
 app.include_router(lootbox.router)
 app.include_router(cards.router)
 app.include_router(promo.router)
-
+app.include_router(gm.router)
 
 
 @app.get("/")

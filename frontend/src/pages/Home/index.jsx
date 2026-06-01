@@ -1,7 +1,7 @@
 import './Home.css'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import GameCard from '../../components/ui/GameCard'
+import GameCard from '../../components/ui/HomeGameCard'
 import api from '../../api/client'
 
 const REGIONS = [
@@ -192,7 +192,7 @@ export default function Home() {
             <span style={{ fontSize: '12px', color: '#374151' }}>Le système vérifie automatiquement toutes les 3 minutes.</span>
           </div>
         ) : (
-          <div className="games-grid">
+          <div className="homegames-grid">
             {games.map(game => (
               <GameCard
                 key={game.id}
