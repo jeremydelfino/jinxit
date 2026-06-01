@@ -15,7 +15,7 @@ export default function SquadTab({ starters, bench, busyId, onPatch, onSell }) {
               <div className="gm-slot-role">{ROLE_LABEL[role]}</div>
               {r ? (
                 <>
-                  <GmCard entry={r} size="sm" />
+                  <GmCard entry={r} size="md" />
                   <div className="gm-side-toggle">
                     {SIDES.map(([val, lbl]) => (
                       <button key={val}

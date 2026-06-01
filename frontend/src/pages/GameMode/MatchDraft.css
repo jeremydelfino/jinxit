@@ -1,0 +1,112 @@
+/* ─── Overlay plein écran (donne sa largeur au board) ──── */
+.gm-draft-overlay { position: fixed; }
+.gm-draft-overlay { inset: 0; }
+.gm-draft-overlay { z-index: 1000; }
+.gm-draft-overlay { background: #171717; }
+.gm-draft-overlay { overflow-y: auto; }
+.gm-draft-loading { display: flex; }
+.gm-draft-loading { flex-direction: column; }
+.gm-draft-loading { align-items: center; }
+.gm-draft-loading { justify-content: center; }
+.gm-draft-loading { min-height: 100vh; }
+.gm-draft-loading { color: #9ca3af; }
+.gm-draft-loading { font-family: 'Outfit', sans-serif; }
+.gm-draft-loading { font-weight: 700; }
+
+/* ─── Draft Myceo : barre du haut ──────────────────────── */
+.gm-draft-top { display: flex; }
+.gm-draft-top { align-items: center; }
+.gm-draft-top { justify-content: space-between; }
+.gm-draft-top { gap: 12px; }
+.gm-draft-top { margin-bottom: 12px; }
+.gm-draft-opp { display: flex; }
+.gm-draft-opp { align-items: center; }
+.gm-draft-opp { gap: 8px; }
+.gm-draft-opp { font-size: 13px; }
+.gm-draft-opp { color: #d1d5db; }
+.gm-draft-opp img { width: 24px; }
+.gm-draft-opp img { height: 24px; }
+.gm-draft-opp img { object-fit: contain; }
+.gm-draft-opp b { color: #f5f5f0; }
+
+/* ─── Assignation des rôles ────────────────────────────── */
+.gm-assign { display: flex; }
+.gm-assign { flex-direction: column; }
+.gm-assign { align-items: center; }
+.gm-assign { gap: 12px; }
+.gm-assign { padding: 8px; }
+.gm-assign-title { font-family: 'Outfit', sans-serif; }
+.gm-assign-title { font-weight: 800; }
+.gm-assign-title { font-size: 16px; }
+.gm-assign-title { color: #f5f5f0; }
+.gm-assign-hint { font-size: 12px; }
+.gm-assign-hint { color: #9ca3af; }
+.gm-assign-hint { text-align: center; }
+.gm-assign-rows { display: flex; }
+.gm-assign-rows { flex-direction: column; }
+.gm-assign-rows { gap: 8px; }
+.gm-assign-rows { width: 100%; }
+.gm-assign-row { display: flex; }
+.gm-assign-row { align-items: center; }
+.gm-assign-row { gap: 12px; }
+.gm-assign-row { padding: 8px 12px; }
+.gm-assign-row { background: #ffffff08; }
+.gm-assign-row { border: 1px solid #ffffff12; }
+.gm-assign-row { border-radius: 10px; }
+.gm-assign-row { cursor: pointer; }
+.gm-assign-row.sel { border-color: #65BD62; }
+.gm-assign-row.sel { background: #65BD6215; }
+.gm-assign-lane { font-family: 'Outfit', sans-serif; }
+.gm-assign-lane { font-weight: 800; }
+.gm-assign-lane { font-size: 12px; }
+.gm-assign-lane { color: #65BD62; }
+.gm-assign-lane { width: 64px; }
+.gm-assign-row img { width: 34px; }
+.gm-assign-row img { height: 34px; }
+.gm-assign-row img { border-radius: 7px; }
+.gm-assign-ph { width: 34px; }
+.gm-assign-ph { text-align: center; }
+.gm-assign-ph { color: #c89b3c; }
+.gm-assign-name { font-weight: 700; }
+.gm-assign-name { font-size: 13px; }
+.gm-assign-name { color: #f5f5f0; }
+
+/* ─── Écran de résultat ────────────────────────────────── */
+.gm-mres { max-width: 460px; }
+.gm-mres { margin: 30px auto; }
+.gm-mres { text-align: center; }
+.gm-mres { padding: 32px 24px; }
+.gm-mres { border-radius: 18px; }
+.gm-mres { background: #1d1d1a; }
+.gm-mres { border: 1px solid #ffffff12; }
+.gm-mres.win { border-color: #65BD6255; }
+.gm-mres.win { box-shadow: 0 0 40px #65BD6222; }
+.gm-mres.loss { border-color: #ef444455; }
+.gm-mres-badge { font-family: 'Outfit', sans-serif; }
+.gm-mres-badge { font-weight: 900; }
+.gm-mres-badge { font-size: 30px; }
+.gm-mres-badge { letter-spacing: 2px; }
+.gm-mres.win .gm-mres-badge { color: #65BD62; }
+.gm-mres.loss .gm-mres-badge { color: #ef4444; }
+.gm-mres-opp { font-size: 13px; }
+.gm-mres-opp { color: #9ca3af; }
+.gm-mres-opp { margin-top: 4px; }
+.gm-mres-pwin { font-size: 13px; }
+.gm-mres-pwin { color: #d1d5db; }
+.gm-mres-pwin { margin-top: 14px; }
+.gm-mres-draft { font-family: 'Outfit', sans-serif; }
+.gm-mres-draft { font-weight: 800; }
+.gm-mres-draft { font-size: 15px; }
+.gm-mres-draft { color: #f5f5f0; }
+.gm-mres-draft { margin-top: 6px; }
+.gm-mres-comp { display: flex; }
+.gm-mres-comp { justify-content: center; }
+.gm-mres-comp { gap: 14px; }
+.gm-mres-comp { margin: 14px 0; }
+.gm-mres-comp span { font-size: 12px; }
+.gm-mres-comp span { color: #9ca3af; }
+.gm-mres-reward { font-family: 'Outfit', sans-serif; }
+.gm-mres-reward { font-weight: 900; }
+.gm-mres-reward { font-size: 20px; }
+.gm-mres-reward { color: #c89b3c; }
+.gm-mres-reward { margin-bottom: 16px; }

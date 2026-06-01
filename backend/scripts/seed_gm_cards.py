@@ -62,6 +62,9 @@ def seed():
         ))
         print("  📦 Pack LFL créé")
 
+def seed_lec():
+    # Idem pour LEC, à faire après avoir seed les joueurs LEC
+
     db.commit()
     db.close()
     print(f"\n🎮 Seed terminé — {added} cartes ajoutées, {skipped} ignorées")

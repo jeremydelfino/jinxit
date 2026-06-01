@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 # max_per_role : largeur du pool | temp : softmax | cooc : exposant co-occurrence
 # order_bias : intensité du biais d'ordre | counter_ban_p / meta_ban_top : bans
 DIFFICULTY = {
+    "LFL": {"max_per_role": 16, "temp": 2.40, "cooc": 0.4, "order_bias": 0.20, "counter_ban_p": 0.10, "meta_ban_top": 30},
     "KC": {"max_per_role": 12, "temp": 1.70, "cooc": 0.6, "order_bias": 0.40, "counter_ban_p": 0.25, "meta_ban_top": 25},
     "G2": {"max_per_role": 8,  "temp": 1.00, "cooc": 1.2, "order_bias": 0.70, "counter_ban_p": 0.55, "meta_ban_top": 16},
     "T1": {"max_per_role": 5,  "temp": 0.55, "cooc": 2.0, "order_bias": 1.00, "counter_ban_p": 0.85, "meta_ban_top": 10},
