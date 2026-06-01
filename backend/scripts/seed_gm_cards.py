@@ -64,6 +64,43 @@ def seed():
 
 def seed_lec():
     # Idem pour LEC, à faire après avoir seed les joueurs LEC
+    db = SessionLocal()
+    added = skipped = 0
+
+    players = db.query(EsportsPlayer).filter(
+        func.lower(EsportsPlayer.region) == "lec", EsportsPlayer.is_active == True
+    ).all()
+
+
+    print(f"🎯 {len(players)} joueurs LEC trouvés")
+
+    for ep in players:
+        exists = db.query(GmPlayerCard).filter(
+            GmPlayerCard.esports_player_id == ep.id, GmPlayerCard.variant == "BASE"
+        ).first()
+        if exists:
+            skipped += 1
+            continue
+
+        role = norm_role(ep.role)
+        defaults = dict(laning=70, teamfight=70, vision=70, mechanics=70, stress=70, clutch=70)
+        ovr = compute_ovr(role, **defaults)
+
+        db.add(GmPlayerCard(
+            esports_player_id=ep.id, variant="BASE", role=role, nationality=None,
+            ego=3, traits=[], ovr=ovr, base_salary=salary_from_ovr(ovr), **defaults,
+        ))
+        added += 1
+        print(f"  ✅ {ep.summoner_name} ({ep.team_code} · {role}) ovr={ovr}")
+
+    # Pack LEC de base (poids 100% sur 70-74 puisque tout est à 70 au départ)
+    if not db.query(GmPackType).filter(GmPackType.name == "Pack LEC").first():
+        db.add(GmPackType(
+            name="Pack LEC", description="Un joueur LEC au hasard.",
+            price_budget=1000, w_70_74=0, w_75_84=70, w_85_89=25, w_90_99=5,
+            league_filter="lec",
+        ))
+        print("  📦 Pack LEC créé")
 
     db.commit()
     db.close()
@@ -72,3 +109,4 @@ def seed_lec():
 
 if __name__ == "__main__":
     seed()
+    seed_lec()

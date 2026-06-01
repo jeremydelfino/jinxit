@@ -58,6 +58,14 @@
 .cd-pick-swap-hint { position: absolute; inset: 0; z-index: 4; display: flex; align-items: center; justify-content: center; gap: 6px; background: #0a0a0a70; opacity: 0; transition: opacity .18s; font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 800; color: #65BD62; }
 .cd-pick-slot.swap-target:hover .cd-pick-swap-hint { opacity: 1; }
 
+/* ─── PLAYER CHIP (Myceo : titulaire du slot) ─── */
+.cd-pick-player { position: absolute; top: 10px; z-index: 3; display: flex; align-items: center; gap: 7px; max-width: 62%; padding: 3px 9px 3px 3px; background: #0a0a0aaa; backdrop-filter: blur(5px); border: 1px solid #ffffff1f; border-radius: 999px; }
+.cd-picks-blue .cd-pick-player { right: 12px; }
+.cd-picks-red  .cd-pick-player { left: 12px; flex-direction: row-reverse; padding: 3px 3px 3px 9px; }
+.cd-pick-player-photo { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; object-position: center top; flex-shrink: 0; }
+.cd-pick-player-ph { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #c89b3c22; color: #c89b3c; font-family: 'Outfit', sans-serif; font-size: 10px; font-weight: 800; }
+.cd-pick-player-name { font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 800; color: #f5f5f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 @keyframes cd-pick-in { from { opacity: 0; transform: translateY(16px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
 /* ─── RESPONSIVE ─── */

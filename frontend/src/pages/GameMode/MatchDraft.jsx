@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
+import api from '../../api/client'
 import { matchStart, matchAction, matchBotTurn, matchFinish } from '../../api/gmMatch'
-import { fetchDDragonData, getAllPicked, getChampIcon } from '../CoachDiffGame/utils'
+import { fetchDDragonData, getAllPicked } from '../CoachDiffGame/utils'
 import { BOT_DELAY_MIN_MS, BOT_DELAY_MAX_MS, LANES } from '../CoachDiffGame/constants'
 import DraftHeader  from '../CoachDiffGame/components/DraftHeader'
 import BanRow       from '../CoachDiffGame/components/BanRow'
@@ -9,7 +10,6 @@ import ChampionGrid from '../CoachDiffGame/components/ChampionGrid'
 import '../CoachDiffGame/CoachDiffGame.css'
 import './MatchDraft.css'
 
-const ROLE_LBL = { TOP: 'Top', JUNGLE: 'Jungle', MID: 'Mid', ADC: 'ADC', SUPPORT: 'Support' }
 const fmt = v => (v >= 0 ? '+' : '') + v
 
 function MatchResult({ r, opp, onExit }) {
@@ -41,10 +41,26 @@ export default function MatchDraft({ onExit }) {
   const [assignment, setAssign] = useState(null)
   const [swapFrom, setSwapFrom] = useState(null)
   const [result, setResult]     = useState(null)
+  const [players, setPlayers]   = useState(null)   // titulaires indexés par lane [TOP..SUP]
   const botRef     = useRef(null)
   const startedRef = useRef(false)
 
   useEffect(() => { fetchDDragonData().then(setDd).catch(() => {}) }, [])
+
+// Roster : titulaire (nom + photo) par lane, pour l'écran d'assignation
+  useEffect(() => {
+    const httpsify = u => (u || '').replace(/^http:\/\//, 'https://') || null
+    ;(async () => {
+      try {
+        const { data } = await api.get('/gm/team')
+        const starters = (data.roster || []).filter(r => r.is_starter)
+        setPlayers(LANES.map(lane => {
+          const r = starters.find(s => (s.role_slot || s.role) === lane)
+          return r ? { name: r.player?.name || '—', photo_url: httpsify(r.player?.photo_url) } : null
+        }))
+      } catch { setPlayers(null) }
+    })()
+  }, [])
 
   useEffect(() => {
     if (startedRef.current) return
@@ -123,10 +139,18 @@ export default function MatchDraft({ onExit }) {
   } else if (g && state) {
     const pickedSet = getAllPicked(state)
     const userSide  = state.user_side
-    const colProps  = side => ({
-      side, picks: state[side.toLowerCase()].picks, version: ddragon.version,
-      isCurrentSlot: !isAssign && turn?.action === 'pick' && turn?.side === side,
-    })
+    const colProps  = side => {
+      const assignActive = isAssign && side === userSide
+      return {
+        side, picks: state[side.toLowerCase()].picks, version: ddragon.version,
+        isCurrentSlot: !isAssign && turn?.action === 'pick' && turn?.side === side,
+        assignMode:  assignActive,
+        assignment:  assignActive ? assignment : null,
+        swapFrom:    assignActive ? swapFrom : null,
+        onSlotClick: assignActive ? clickSlot : null,
+        players:     assignActive ? players : null,
+      }
+    }
 
     content = (
       <div className="cdg-page">
@@ -156,18 +180,7 @@ export default function MatchDraft({ onExit }) {
             <div className="cdg-ac">
               <div className="cdg-ac-icon">🎯</div>
               <h3 className="cdg-ac-title">Place tes champions</h3>
-              <p className="cdg-ac-hint">Clique deux champions pour les échanger (ordre des lanes).</p>
-              <div className="gm-assign-rows">
-                {(assignment || []).map((champ, i) => (
-                  <button key={i} className={`gm-assign-row ${swapFrom === i ? 'sel' : ''}`} onClick={() => clickSlot(i)}>
-                    <span className="gm-assign-lane">{ROLE_LBL[LANES[i]]}</span>
-                    {getChampIcon(champ, ddragon.version)
-                      ? <img src={getChampIcon(champ, ddragon.version)} alt={champ} />
-                      : <span className="gm-assign-ph">{champ?.slice(0, 2)}</span>}
-                    <span className="gm-assign-name">{champ}</span>
-                  </button>
-                ))}
-              </div>
+              <p className="cdg-ac-hint">Dans ta colonne, clique un champion puis la lane où l'envoyer. Chaque slot affiche le titulaire qui jouera ce rôle.</p>
               <button className="cdg-ac-validate" disabled={busy} onClick={validate}>
                 {busy ? 'Résolution…' : 'Valider la draft'}
               </button>

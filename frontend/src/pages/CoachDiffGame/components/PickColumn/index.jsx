@@ -5,6 +5,7 @@ import { SIDE_LABELS, LANES, LANE_LABELS, LANE_ICONS } from '../../constants'
 export default function PickColumn({
   side, picks, isCurrentSlot,
   assignMode = false, assignment = null, swapFrom = null, onSlotClick = null,
+  players = null,
 }) {
   const sideLower = side.toLowerCase()
   const list  = assignMode ? (assignment || []) : (picks || [])
@@ -22,6 +23,7 @@ export default function PickColumn({
         {slots.map((champ, i) => {
           const role         = LANES[i]
           const splash       = champ ? getChampSplash(champ) : null
+          const player       = players?.[i] || null
           const isActive     = !assignMode && isCurrentSlot && i === (picks?.length || 0)
           const isSwapFrom   = assignMode && swapFrom === i
           const isSwapTarget = assignMode && swapFrom !== null && swapFrom !== i && !!champ
@@ -53,13 +55,27 @@ export default function PickColumn({
                       <span className="cd-pick-role-lbl">{LANE_LABELS[role]}</span>
                     </div>
                   )}
+                  {player && (
+                    <div className="cd-pick-player">
+                      <span className="cd-pick-player-photo">
+                        <span className="cd-pick-player-ini">{(player.name || '?').slice(0, 2).toUpperCase()}</span>
+                        {player.photo_url && (
+                          <img src={player.photo_url} alt={player.name} referrerPolicy="no-referrer"
+                               onError={e => { e.currentTarget.style.display = 'none' }} />
+                        )}
+                      </span>
+                      <span className="cd-pick-player-name">{player.name}</span>
+                    </div>
+                  )}
                   <div className={`cd-pick-name ${sideLower}`}>{champ}</div>
                   {isSwapFrom   && <div className="cd-pick-swap-badge">Échanger avec…</div>}
                   {isSwapTarget && <div className="cd-pick-swap-hint">↔ {LANE_LABELS[role]}</div>}
                 </>
               ) : (
                 <div className="cd-pick-empty">
-                  {assignMode ? <span className="cd-pick-role-ico">{LANE_ICONS[role]}</span> : (i + 1)}
+                  {assignMode
+                    ? <span className="cd-pick-role-ico">{LANE_ICONS[role]}</span>
+                    : (i + 1)}
                 </div>
               )}
             </div>
