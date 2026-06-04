@@ -1,0 +1,97 @@
+/* MatchSim.css */
+.ms-wrap { max-width: 540px; }
+.ms-wrap { margin: 0 auto; }
+.ms-wrap { font-family: 'Inter', sans-serif; }
+
+/* ─── Score bar ────────────────────────────────────────── */
+.ms-scorebar { display: flex; }
+.ms-scorebar { align-items: center; }
+.ms-scorebar { justify-content: center; }
+.ms-scorebar { gap: 22px; }
+.ms-scorebar { margin-bottom: 12px; }
+.ms-side { display: flex; }
+.ms-side { align-items: center; }
+.ms-side { gap: 10px; }
+.ms-side-lbl { font-size: 12px; }
+.ms-side-lbl { color: #9ca3af; }
+.ms-side-lbl i { color: #65BD62; }
+.ms-side-lbl i { font-style: normal; }
+.ms-side-k { font-family: 'Outfit', sans-serif; }
+.ms-side-k { font-weight: 900; }
+.ms-side-k { font-size: 28px; }
+.ms-blue .ms-side-k { color: #4C9BE8; }
+.ms-red .ms-side-k { color: #E2574E; }
+.ms-clk { font-family: 'Outfit', sans-serif; }
+.ms-clk { font-weight: 700; }
+.ms-clk { font-size: 17px; }
+.ms-clk { color: #f5f5f0; }
+.ms-clk { font-variant-numeric: tabular-nums; }
+
+/* ─── Map ──────────────────────────────────────────────── */
+.ms-map-box { background: #1d1d1a; }
+.ms-map-box { border: 1px solid #ffffff10; }
+.ms-map-box { border-radius: 16px; }
+.ms-map-box { padding: 12px; }
+.ms-map-box { display: flex; }
+.ms-map-box { justify-content: center; }
+.ms-map { width: 100%; }
+.ms-map { max-width: 360px; }
+.ms-map { height: auto; }
+
+/* ─── Contrôles ────────────────────────────────────────── */
+.ms-controls { display: flex; }
+.ms-controls { align-items: center; }
+.ms-controls { gap: 8px; }
+.ms-controls { margin-top: 12px; }
+.ms-btn { font-family: 'Outfit', sans-serif; }
+.ms-btn { font-weight: 800; }
+.ms-btn { font-size: 13px; }
+.ms-btn { color: #f5f5f0; }
+.ms-btn { background: #ffffff0d; }
+.ms-btn { border: 1px solid #ffffff14; }
+.ms-btn { padding: 8px 16px; }
+.ms-btn { border-radius: 9px; }
+.ms-btn { cursor: pointer; }
+.ms-btn { transition: all 0.16s; }
+.ms-btn:hover:not(:disabled) { background: #ffffff18; }
+.ms-btn:disabled { opacity: 0.4; }
+.ms-btn:disabled { cursor: not-allowed; }
+.ms-obj { margin-left: auto; }
+.ms-obj { display: flex; }
+.ms-obj { gap: 14px; }
+.ms-obj { font-size: 13px; }
+.ms-obj { color: #9ca3af; }
+
+/* ─── Feed ─────────────────────────────────────────────── */
+.ms-feed { margin-top: 12px; }
+.ms-feed { min-height: 100px; }
+.ms-feed { display: flex; }
+.ms-feed { flex-direction: column; }
+.ms-feed { gap: 4px; }
+.ms-feed-line { font-size: 13px; }
+.ms-feed-line { color: #c0c4cc; }
+.ms-dot { margin-right: 7px; }
+
+/* ─── Fin de match ─────────────────────────────────────── */
+.ms-end { margin-top: 16px; }
+.ms-end { text-align: center; }
+.ms-end { background: #1d1d1a; }
+.ms-end { border: 1px solid #c89b3c33; }
+.ms-end { border-radius: 14px; }
+.ms-end { padding: 22px; }
+.ms-end-score { font-family: 'Outfit', sans-serif; }
+.ms-end-score { font-weight: 900; }
+.ms-end-score { font-size: 36px; }
+.ms-end-score { color: #f5f5f0; }
+.ms-end-win { font-size: 14px; }
+.ms-end-win { color: #c89b3c; }
+.ms-end-win { margin-top: 4px; }
+.ms-end-mvp { font-size: 13px; }
+.ms-end-mvp { color: #9ca3af; }
+.ms-end-mvp { margin-top: 8px; }
+.ms-btn-primary { background: #65BD62; }
+.ms-btn-primary { color: #171717; }
+.ms-btn-primary { border: none; }
+.ms-btn-primary { margin-top: 16px; }
+.ms-btn-primary { padding: 11px 22px; }
+.ms-btn-primary:hover { background: #74cf70; }

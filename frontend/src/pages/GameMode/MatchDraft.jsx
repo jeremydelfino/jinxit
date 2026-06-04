@@ -6,6 +6,7 @@ import { BOT_DELAY_MIN_MS, BOT_DELAY_MAX_MS, LANES } from '../CoachDiffGame/cons
 import DraftHeader  from '../CoachDiffGame/components/DraftHeader'
 import BanRow       from '../CoachDiffGame/components/BanRow'
 import PickColumn   from '../CoachDiffGame/components/PickColumn'
+import MatchSim from './MatchSim'
 import ChampionGrid from '../CoachDiffGame/components/ChampionGrid'
 import '../CoachDiffGame/CoachDiffGame.css'
 import './MatchDraft.css'
@@ -44,6 +45,7 @@ export default function MatchDraft({ onExit }) {
   const [players, setPlayers]   = useState(null)   // titulaires indexés par lane [TOP..SUP]
   const botRef     = useRef(null)
   const startedRef = useRef(false)
+  const [simDone, setSimDone] = useState(false)
 
   useEffect(() => { fetchDDragonData().then(setDd).catch(() => {}) }, [])
 
@@ -134,6 +136,8 @@ export default function MatchDraft({ onExit }) {
         <button className="gm-btn-ghost" onClick={onExit}>Retour</button>
       </div>
     )
+  } else if (result && result.timeline && !simDone) {
+    content = <MatchSim timeline={result.timeline} userSide={result.user_side} version={ddragon.version} onDone={() => setSimDone(true)} />
   } else if (result) {
     content = <MatchResult r={result} opp={g?.opponent} onExit={onExit} />
   } else if (g && state) {

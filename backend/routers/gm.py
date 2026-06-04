@@ -24,6 +24,7 @@ from models.gm_ai_team  import GmAiTeam
 from services.gm_season import create_season
 
 from datetime import datetime
+from services.gm_sim import generate_timeline, synthetic_side
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.exc import IntegrityError
 from models.gm_game import GmGame
@@ -707,6 +708,39 @@ def match_finish(body: GmAssignReq, db: Session = Depends(get_db), user: User = 
     reward = reward_for(win)
     team.budget += reward
 
+    user_color, bot_color = user_side.lower(), bot_side.lower()
+    winner_color = user_color if win else bot_color
+    role_to_champ = {
+        "blue": {(l or "").upper(): c for l, c in state["blue"]["lanes"].items()},
+        "red":  {(l or "").upper(): c for l, c in state["red"]["lanes"].items()},
+    }
+    starters = db.query(GmContract).filter(
+        GmContract.team_id == team.id, GmContract.is_starter == True).all()
+    scards = db.query(GmPlayerCard).filter(
+        GmPlayerCard.id.in_([c.card_id for c in starters])).all()
+    scmap = {c.id: c for c in scards}
+    epids = [c.esports_player_id for c in scards if c.esports_player_id]
+    eps = {e.id: e for e in db.query(EsportsPlayer).filter(
+        EsportsPlayer.id.in_(epids)).all()} if epids else {}
+    user_cards = []
+    for ct in starters:
+        c = scmap.get(ct.card_id)
+        if not c:
+            continue
+        ep = eps.get(c.esports_player_id)
+        user_cards.append({
+            "role": (ct.role_slot or c.role or "MID").upper(),
+            "laning": c.laning, "teamfight": c.teamfight, "vision": c.vision,
+            "mechanics": c.mechanics, "stress": c.stress, "clutch": c.clutch,
+            "ego": c.ego, "ovr": c.ovr, "traits": c.traits or [],
+            "name": (ep.summoner_name if ep else None) or (ct.role_slot or c.role),
+        })
+    bot_cards = synthetic_side(opp_strength, name=(opp.name if opp else "BOT"), seed=game.id)
+    sides_cards = {user_color: user_cards, bot_color: bot_cards}
+    timeline = generate_timeline(
+        sides_cards["blue"], sides_cards["red"], role_to_champ,
+        winner=winner_color, seed=game.id)
+
     _sim_matchday_ai(db, season, match.matchday)
     _advance_season(db, season)
 
@@ -718,4 +752,6 @@ def match_finish(body: GmAssignReq, db: Session = Depends(get_db), user: User = 
         "components": {"draft": round(d, 3), "strength": round(f, 3), "mental": round(m, 3)},
         "reward_budget": reward, "budget": team.budget,
         "season": _serialize_season(db, season, team),
+        "user_side": user_side,
+        "timeline": timeline,
     }
